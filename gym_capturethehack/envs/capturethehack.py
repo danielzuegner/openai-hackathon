@@ -2,6 +2,8 @@ import sys, math
 from math import *
 import numpy as np
 
+#from matplotlib import  pyplot as plt
+
 import sys
 sys.path.append('..')
 
@@ -29,6 +31,7 @@ class EntityType(Enum):
 STATE_W = 96   # less than Atari 160x192
 STATE_H = 96
 UPSCALE_FACTOR = 10
+PLAYFIELD = 40
 
 FPS = 50
 
@@ -96,7 +99,6 @@ class CaptureTheHackEnv(gym.Env):
 
         self.action_space = spaces.Box( np.array([-1,0,0]), np.array([+1,+1,+1]))  # steer, gas, brake
         self.observation_space = spaces.Box(low=0, high=255, shape=(STATE_H, STATE_W, 3))
-
         self.viewer = None
 
     def _seed(self, seed=None):
@@ -113,14 +115,11 @@ class CaptureTheHackEnv(gym.Env):
         return None
 
     def _step(self, action):
-        for body in self.world.bodies:
-            if 'toBeDestroyed' in body.userData and body.userData['toBeDestroyed'] == True:
-                1 + 2
-                self.world.DestroyBody(body)
-
         self.world.Step(1.0/FPS, 6*30, 2*30)
         self.t += 1.0 / FPS
-
+        for body in self.world.bodies:
+            if 'toBeDestroyed' in body.userData and body.userData['toBeDestroyed'] == True:
+                self.world.DestroyBody(body)
 
     def _render(self, mode='human', close=False):
         if close:
@@ -153,21 +152,27 @@ class CaptureTheHackEnv(gym.Env):
         t.enable()
         self._render_world(WIDTH, HEIGHT, factor)
         t.disable()
-        win.flip()
-        #if mode == 'human':
-        #    win.flip()
+        if mode == 'human':
+            win.flip()
+        if mode == 'state_pixels':
+            image_data = pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
+            arr = np.fromstring(image_data.data, dtype=np.uint8, sep='')
+            arr = arr.reshape(HEIGHT, WIDTH, 4)
+            arr = arr[::-1, :, 0:3]
+            #plt.imshow(arr)
+            #plt.show()
         return arr
 
 
     def _render_world(self, WIDTH, HEIGHT, factor):
-        PLAYFIELD = 200 / 6 * factor  # Game over boundary
+        playfield = PLAYFIELD * factor  # Game over boundary
         gl.glBegin(gl.GL_QUADS)
-        gl.glColor4f(0.4, 0.8, 0.4, 1.0)
-        gl.glVertex3f(-PLAYFIELD + WIDTH / 2, +PLAYFIELD + HEIGHT / 2, 0)
-        gl.glVertex3f(+PLAYFIELD + WIDTH / 2, +PLAYFIELD + HEIGHT / 2, 0)
-        gl.glVertex3f(+PLAYFIELD + WIDTH / 2, -PLAYFIELD + HEIGHT / 2, 0)
-        gl.glVertex3f(-PLAYFIELD + WIDTH / 2, -PLAYFIELD + HEIGHT / 2, 0)
-        gl.glColor4f(0.4, 0.9, 0.4, 1.0)
+        gl.glColor4f(0.3, 0.3, 0.3, 1.0)
+        gl.glVertex3f(-playfield + WIDTH / 2, +playfield + HEIGHT / 2, 0)
+        gl.glVertex3f(+playfield + WIDTH / 2, +playfield + HEIGHT / 2, 0)
+        gl.glVertex3f(+playfield + WIDTH / 2, -playfield + HEIGHT / 2, 0)
+        gl.glVertex3f(-playfield + WIDTH / 2, -playfield + HEIGHT / 2, 0)
+        gl.glColor4f(1, 1, 1, 1.0)
         gl.glEnd()
         for body in self.world.bodies:
             gl.glBegin(gl.GL_POLYGON)
@@ -186,16 +191,6 @@ class CaptureTheHackEnv(gym.Env):
                 drawCircle(body, factor, color)
 
 
-            #if type(body.fixtures[0].shape) == Box2D.Box2D.b2CircleShape:
-            #    drawCircle(body, factor)
-                #radius = body.fixtures[0].shape.radius
-                #numPoints = 100
-                #for i in range(numPoints):
-                #    angle = radians(float(i) / numPoints * 360.0)
-                #    x = radius * cos(angle) + pos[0]
-                #    y = radius * sin(angle) + pos[1]
-                #    gl.glVertex3f(x*factor, y*factor, 0)
-
             elif type(body.fixtures[0].shape) == Box2D.Box2D.b2PolygonShape:
                 for point in body.fixtures[0].shape.vertices:
                     gl.glVertex3f((point[0] + pos[0])*factor, (point[1] + pos[1])*factor, 0)
@@ -203,10 +198,29 @@ class CaptureTheHackEnv(gym.Env):
             gl.glEnd()
 
     def _create_world(self):
-        self.box = [(0,0),(0, 10), (10, 10), (10,0)]
+
+        self.box = [(0,0),(0, 10) , (10, 10), (10,0)]
+
+        upperWallBox =   [(-PLAYFIELD + STATE_W / 2, + PLAYFIELD + STATE_H / 2),
+                          (+PLAYFIELD + STATE_W / 2, + PLAYFIELD + STATE_H / 2),
+                          (-PLAYFIELD + STATE_W / 2, + PLAYFIELD + STATE_H / 2 + 1),
+                          (+PLAYFIELD + STATE_W / 2, + PLAYFIELD + STATE_H / 2 + 1)]
+        lowerWallBox =   [(-PLAYFIELD + STATE_W / 2, - PLAYFIELD + STATE_H / 2),
+                          (+PLAYFIELD + STATE_W / 2, - PLAYFIELD + STATE_H / 2),
+                          (-PLAYFIELD + STATE_W / 2, - PLAYFIELD + STATE_H / 2 + 1),
+                          (+PLAYFIELD + STATE_W / 2, - PLAYFIELD + STATE_H / 2 + 1)]
+        leftWallBox =  [(-PLAYFIELD + STATE_W / 2, + PLAYFIELD + STATE_H / 2),
+                        (-PLAYFIELD + STATE_W / 2, - PLAYFIELD + STATE_H / 2),
+                        (-PLAYFIELD + STATE_W / 2 + 1, + PLAYFIELD + STATE_H / 2),
+                        (-PLAYFIELD + STATE_W / 2 + 1, - PLAYFIELD + STATE_H / 2)]
+        rightWallBox = [(+PLAYFIELD + STATE_W / 2, + PLAYFIELD + STATE_H / 2),
+                        (+PLAYFIELD + STATE_W / 2, - PLAYFIELD + STATE_H / 2),
+                        (+PLAYFIELD + STATE_W / 2 - 1, + PLAYFIELD + STATE_H / 2),
+                        (+PLAYFIELD + STATE_W / 2 - 1, - PLAYFIELD + STATE_H / 2)]
+
         radius = 5
         agent1_body = self.world.CreateDynamicBody(
-            position=(5, 5),
+            position=(20, 20),
             fixtures=fixtureDef(shape=circleShape(
                 radius=radius), density=1),
         )
@@ -222,8 +236,9 @@ class CaptureTheHackEnv(gym.Env):
         self.agentShoot(agent)
 
 
+
         box2 = self.world.CreateStaticBody()
-        box2.CreatePolygonFixture(vertices = [(x[0] + 20, x[1] + 20) for x in self.box], density=1000)
+        box2.CreatePolygonFixture(vertices = [(x[0] + 40, x[1] + 40) for x in self.box], density=1000)
         box2.userData = {"class": EntityType.OBSTACLE}
 
 
@@ -231,7 +246,7 @@ class CaptureTheHackEnv(gym.Env):
 
         agent2 = Agent(team=1, id=1)
         agent2_body = self.world.CreateDynamicBody(
-            position=(50, 50),
+            position=(70, 70),
             fixtures=fixtureDef(shape=circleShape(
                 radius=radius), density=1),
         )
@@ -239,6 +254,23 @@ class CaptureTheHackEnv(gym.Env):
         agent2_body.linearDamping = .002
         agent2_body.userData = {'agent':agent2,"class": EntityType.AGENT}
         agent2_body.angle = pi/4
+
+        upperWall = self.world.CreateStaticBody()
+        upperWall.CreatePolygonFixture(vertices=upperWallBox, density=100000)
+        upperWall.userData = {"class": EntityType.OBSTACLE}
+
+
+        lowerWall = self.world.CreateStaticBody()
+        lowerWall.CreatePolygonFixture(vertices=lowerWallBox, density=100000)
+        lowerWall.userData = {"class": EntityType.OBSTACLE}
+
+        leftWall = self.world.CreateStaticBody()
+        leftWall.CreatePolygonFixture(vertices=leftWallBox, density=100000)
+        leftWall.userData = {"class": EntityType.OBSTACLE}
+
+        rightWall = self.world.CreateStaticBody()
+        rightWall.CreatePolygonFixture(vertices=rightWallBox, density=100000)
+        rightWall.userData = {"class": EntityType.OBSTACLE}
 
 
     def agentShoot(self, agent):
