@@ -58,11 +58,13 @@ class ContactListener(contactListener):
             if u2['class'] == EntityType.BULLET:
                 if 'agent' in u1 and 'agent' in u2:
                     Agent.kill(u2['agent'], u1['agent'])
+                    u2['toBeDestroyed'] = True
 
         if u2['class'] == EntityType.AGENT:
             if u1['class'] == EntityType.BULLET:
                 if 'agent' in u1 and 'agent' in u2:
                     Agent.kill(u1['agent'], u2['agent'])
+                    u1['toBeDestroyed'] = True
 
         if u1['class'] == EntityType.BULLET:
             if u2['class'] == EntityType.OBSTACLE:
@@ -74,7 +76,7 @@ class ContactListener(contactListener):
 
         return None
 
-def drawCircle(body, factor, color = (0.4, 0.8, 0.4, 1.0), numPoints = 10):
+def drawCircle(body, factor, color = (0.4, 0.8, 0.4, 1.0), numPoints = 100):
     gl.glColor4f(color[0], color[1], color[2], color[3])
     radius = body.fixtures[0].shape.radius
     pos = body.position
@@ -237,9 +239,9 @@ class CaptureTheHackEnv(gym.Env):
 
 
 
-        box2 = self.world.CreateStaticBody()
-        box2.CreatePolygonFixture(vertices = [(x[0] + 40, x[1] + 40) for x in self.box], density=1000)
-        box2.userData = {"class": EntityType.OBSTACLE}
+        #box2 = self.world.CreateStaticBody()
+        #box2.CreatePolygonFixture(vertices = [(x[0] + 40, x[1] + 40) for x in self.box], density=1000)
+        #box2.userData = {"class": EntityType.OBSTACLE}
 
 
 
@@ -254,6 +256,7 @@ class CaptureTheHackEnv(gym.Env):
         agent2_body.linearDamping = .002
         agent2_body.userData = {'agent':agent2,"class": EntityType.AGENT}
         agent2_body.angle = pi/4
+        agent2.body = agent2_body
 
         upperWall = self.world.CreateStaticBody()
         upperWall.CreatePolygonFixture(vertices=upperWallBox, density=100000)
@@ -280,7 +283,7 @@ class CaptureTheHackEnv(gym.Env):
         y = sin(agentRotation)
         radius = agent.body.fixtures[0].shape.radius
         bullet = self.world.CreateDynamicBody(
-            position=(agentPos[0] + radius*x, agentPos[1] + radius*y),
+            position=(agentPos[0] + 2*radius*x, agentPos[1] + 2*radius*y),
             fixtures=fixtureDef(shape=circleShape(
                 radius=0.5), density=1),
         )

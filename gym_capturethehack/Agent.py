@@ -24,5 +24,7 @@ class Agent:
         :param agent2: the agent killed by agent1
         """
         print("Agent {} in team {} kills Agent {} of team {}".format(agent1.id, agent1.team, agent2.id, agent2.team))
+
+        agent2.body.userData['toBeDestroyed'] = True
         return None
        
