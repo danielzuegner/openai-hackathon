@@ -7,6 +7,9 @@ class Observation:
         self.agent_states = dict()
 
     def get_agent_state(self, team_id, agent_id):
+        """
+        Returns a state object encapsulating the frame, communication signals and reward for that agent
+        """
         check_ids(team_id, agent_id)
 
         return self.agent_states[(team_id, agent_id)]
@@ -30,3 +33,10 @@ class Observation:
         if agent_id < 0 or agent_id > agents:
             print("Agent id was out of bounds")
             exit()
+
+    def __repr__(self):
+        stringRepr = None
+        for key, value in self.agent_states.items:
+            stringRepr += str(value.communication_signals) + str(value.reward)
+
+        return stringRepr            

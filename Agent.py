@@ -5,8 +5,9 @@ logger.setLevel(config["logging_level"])
 
 class Agent:
 
-    def __init__(self, team):
+    def __init__(self, team, id):
         self.team = team
+        self.id = id
         return
 
     def get_next_action(self):
