@@ -1,4 +1,5 @@
 import sys, math
+from math import *
 import numpy as np
 
 import sys
@@ -82,7 +83,6 @@ class CaptureTheHackEnv(gym.Env):
                 self.viewer.close()
                 self.viewer = None
             return
-        print(mode)
         if mode == 'state_pixels':
             WIDTH = STATE_W
             HEIGHT = STATE_H
@@ -124,29 +124,40 @@ class CaptureTheHackEnv(gym.Env):
         gl.glVertex3f(-PLAYFIELD + WIDTH / 2, -PLAYFIELD + HEIGHT / 2, 0)
         gl.glColor4f(0.4, 0.9, 0.4, 1.0)
         gl.glEnd()
-        gl.glBegin(gl.GL_QUADS)
         for body in self.world.bodies:
-            print(body)
-            body.ApplyLinearImpulse((10, 5), body.worldCenter, True)
+            gl.glBegin(gl.GL_POLYGON)
+            body.ApplyLinearImpulse((12, 10), body.worldCenter, True)
             pos = body.position
-            for point in body.fixtures[0].shape.vertices:
-                gl.glVertex3f((point[0] + pos[0])*factor, (point[1] + pos[1])*factor, 0)
-        gl.glEnd()
+            if type(body.fixtures[0].shape) == Box2D.Box2D.b2CircleShape:
+                radius = body.fixtures[0].shape.radius
+                numPoints = 100
+                for i in range(numPoints):
+                    angle = radians(float(i) / numPoints * 360.0)
+                    x = radius * cos(angle) + pos[0]
+                    y = radius * sin(angle) + pos[1]
+                    gl.glVertex3f(x*factor, y*factor, 0)
+
+            elif type(body.fixtures[0].shape) == Box2D.Box2D.b2PolygonShape:
+                for point in body.fixtures[0].shape.vertices:
+                    gl.glVertex3f((point[0] + pos[0])*factor, (point[1] + pos[1])*factor, 0)
+
+            gl.glEnd()
 
     def _create_world(self):
         self.box = [(0,0),(0, 10) , (10, 10), (10,0)]
-        radius = 1
+        radius = 5
         box = self.world.CreateDynamicBody(
             position=(5, 5),
             fixtures=fixtureDef(shape=circleShape(
-                radius=radius), density=1.0),
+                radius=radius), density=1),
         )
-        box.fixtures[0].sensor = True
-        box.linearDamping = .2
+        #box.fixtures[0].sensor = True
+        box.linearDamping = .002
         box.userData = {"class":"obstacles"}
-        print(type(box.fixtures[0].shape) == Box2D.Box2D.b2CircleShape)
-        box.ApplyLinearImpulse((10,5), box.worldCenter, True)
+        print(box.fixtures[0].shape)
+        box.ApplyLinearImpulse((12,10), box.worldCenter, True)
 
 
         box2 = self.world.CreateStaticBody()
         box2.CreatePolygonFixture(vertices = [(x[0] + 20, x[1] + 20) for x in self.box], density=1000)
+
