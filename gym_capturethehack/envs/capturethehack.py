@@ -2,12 +2,13 @@ import sys, math
 from math import *
 import numpy as np
 
-#from matplotlib import  pyplot as plt
+from matplotlib import  pyplot as plt
 
 import sys
 sys.path.append('..')
 
 from gym_capturethehack.Agent import Agent
+from gym_capturethehack.config import config
 
 import Box2D
 from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef, contactListener,
@@ -28,10 +29,10 @@ class EntityType(Enum):
     BULLET = 3
 
 
-STATE_W = 96   # less than Atari 160x192
-STATE_H = 96
+STATE_W = config["image_size"][0]
+STATE_H = config["image_size"][1]
 UPSCALE_FACTOR = 10
-PLAYFIELD = 40
+PLAYFIELD = (STATE_W + STATE_H) / 5
 
 FPS = 50
 
@@ -77,6 +78,7 @@ class ContactListener(contactListener):
         return None
 
 def drawCircle(body, factor, color = (0.4, 0.8, 0.4, 1.0), numPoints = 100):
+    gl.glBegin(gl.GL_POLYGON)
     gl.glColor4f(color[0], color[1], color[2], color[3])
     radius = body.fixtures[0].shape.radius
     pos = body.position
@@ -86,6 +88,7 @@ def drawCircle(body, factor, color = (0.4, 0.8, 0.4, 1.0), numPoints = 100):
         y = radius * sin(angle) + pos[1]
         gl.glVertex3f(x * factor, y * factor, 0)
     gl.glColor4f(0.4, 0.9, 0.4, 1.0)
+    gl.glEnd()
 
 
 class CaptureTheHackEnv(gym.Env):
@@ -161,8 +164,8 @@ class CaptureTheHackEnv(gym.Env):
             arr = np.fromstring(image_data.data, dtype=np.uint8, sep='')
             arr = arr.reshape(HEIGHT, WIDTH, 4)
             arr = arr[::-1, :, 0:3]
-            #plt.imshow(arr)
-            #plt.show()
+            plt.imshow(arr)
+            plt.show()
         return arr
 
 
@@ -177,7 +180,6 @@ class CaptureTheHackEnv(gym.Env):
         gl.glColor4f(1, 1, 1, 1.0)
         gl.glEnd()
         for body in self.world.bodies:
-            gl.glBegin(gl.GL_POLYGON)
             #body.ApplyLinearImpulse((12, 10), body.worldCenter, True)
             pos = body.position
 
@@ -188,16 +190,30 @@ class CaptureTheHackEnv(gym.Env):
                 elif body.userData['agent'].team == 1:
                     color = (1, 0, 1, 1)
                 drawCircle(body, factor, color)
+                angle = body.angle
+                pos = body.position
+                x = cos(angle)
+                y = sin(angle)
+                #gl.glBegin(gl.GL_LINES)
+                #gl.glColor4f(color[0], color[1], color[2], color[3])
+                #gl.glVertex3f(factor*pos[0], factor*pos[1], 0)
+                #gl.glVertex3f(factor*(pos[0] + 3*x), factor*(pos[1] + 3*y), 0)
+                #gl.glEnd()
+
             elif body.userData['class'] == EntityType.BULLET:
+                #gl.glBegin(gl.GL_POLYGON)
                 color = (1,0,0,1)
                 drawCircle(body, factor, color)
 
 
             elif type(body.fixtures[0].shape) == Box2D.Box2D.b2PolygonShape:
+                gl.glBegin(gl.GL_POLYGON)
+                color = (1, 1, 1, 1)
+                gl.glColor4f(color[0], color[1], color[2], color[3])
                 for point in body.fixtures[0].shape.vertices:
                     gl.glVertex3f((point[0] + pos[0])*factor, (point[1] + pos[1])*factor, 0)
+                gl.glEnd()
 
-            gl.glEnd()
 
     def _create_world(self):
 
@@ -220,48 +236,39 @@ class CaptureTheHackEnv(gym.Env):
                         (+PLAYFIELD + STATE_W / 2 - 1, + PLAYFIELD + STATE_H / 2),
                         (+PLAYFIELD + STATE_W / 2 - 1, - PLAYFIELD + STATE_H / 2)]
 
-        radius = 5
-        agent1_body = self.world.CreateDynamicBody(
-            position=(20, 20),
-            fixtures=fixtureDef(shape=circleShape(
-                radius=radius), density=1),
-        )
-        #box.fixtures[0].sensor = True
-        agent = Agent(team=0, id=0)
-        agent.body = agent1_body
+        radius = (STATE_H + STATE_W) / 100
 
-        agent1_body.linearDamping = .002
-        agent1_body.userData = {"class": EntityType.AGENT, 'agent': agent}
-        agent1_body.angle = pi/4
-        print(agent1_body.fixtures[0].shape)
+        upper_y = PLAYFIELD + STATE_H / 2 - radius
+        lower_y = - PLAYFIELD + STATE_H / 2 + radius
+        upper_x = PLAYFIELD + STATE_W / 2 - radius
+        lower_x = -PLAYFIELD + STATE_W / 2 + radius
+
+        for id, agents in enumerate(config["team_counts"]):
+            for agent in range(agents):
+                agent_object = Agent(team=id, id = agent)
+                agent_body = self.world.CreateDynamicBody(
+                    position=(np.random.uniform(low=lower_x, high=upper_x), np.random.uniform(low=lower_y, high=upper_y)),
+                    fixtures=fixtureDef(shape=circleShape(
+                        radius=radius), density=1),
+                 )
+                agent_object.body = agent_body
+                agent_body.linearDamping = .002
+                agent_body.angle = np.random.uniform(low=0, high=2*pi)
+                agent_body.userData = {"class": EntityType.AGENT, 'agent': agent_object}
+                self.agentShoot(agent_object)
+
+        #agent1_body.angle = pi/4
+        #print(agent1_body.fixtures[0].shape)
         #box.ApplyLinearImpulse((12,10), box.worldCenter, True)
-        self.agentShoot(agent)
-
-
+        #self.agentShoot(agent)
 
         #box2 = self.world.CreateStaticBody()
         #box2.CreatePolygonFixture(vertices = [(x[0] + 40, x[1] + 40) for x in self.box], density=1000)
         #box2.userData = {"class": EntityType.OBSTACLE}
 
-
-
-
-        agent2 = Agent(team=1, id=1)
-        agent2_body = self.world.CreateDynamicBody(
-            position=(70, 70),
-            fixtures=fixtureDef(shape=circleShape(
-                radius=radius), density=1),
-        )
-        #box.fixtures[0].sensor = True
-        agent2_body.linearDamping = .002
-        agent2_body.userData = {'agent':agent2,"class": EntityType.AGENT}
-        agent2_body.angle = pi/4
-        agent2.body = agent2_body
-
         upperWall = self.world.CreateStaticBody()
         upperWall.CreatePolygonFixture(vertices=upperWallBox, density=100000)
         upperWall.userData = {"class": EntityType.OBSTACLE}
-
 
         lowerWall = self.world.CreateStaticBody()
         lowerWall.CreatePolygonFixture(vertices=lowerWallBox, density=100000)
