@@ -7,12 +7,12 @@ class Observation:
         self.agent_states = dict()
 
     def get_agent_state(self, team_id, agent_id):
-        check_ids(team_id, agent_id)
+        self.check_ids(team_id, agent_id)
 
         return self.agent_states[(team_id, agent_id)]
     
     def set_agent_state(self, team_id, agent_id, state=None):
-        check_ids(team_id, agent_id)
+        self.check_ids(team_id, agent_id)
 
         if state == None:
             print("State cannot be none!")

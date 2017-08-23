@@ -9,5 +9,5 @@ class Agent:
         self.team = team
         return
 
-    def get_next_action(self):
+    def get_next_action(self, agent_state):
         return
