@@ -1,8 +1,14 @@
 import sys, math
 import numpy as np
 
+import sys
+sys.path.append('..')
+
+#from Agent import Agent
+
 import Box2D
-from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef, contactListener)
+from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef, contactListener,
+                      circleShape)
 
 import gym
 from gym import spaces
@@ -32,6 +38,8 @@ class ContactListener(contactListener):
         self._contact(contact, False)
 
     def _contact(self, contact, begin):
+        print(contact)
+        print("contact!")
         return None
 
 
@@ -103,7 +111,6 @@ class CaptureTheHackEnv(gym.Env):
         win.flip()
         #if mode == 'human':
         #    win.flip()
-        self.viewer.onetime_geoms = []
         return arr
 
 
@@ -128,9 +135,18 @@ class CaptureTheHackEnv(gym.Env):
 
     def _create_world(self):
         self.box = [(0,0),(0, 10) , (10, 10), (10,0)]
-
-        box = self.world.CreateDynamicBody()
-        box.CreatePolygonFixture(vertices=self.box, density=0.1)
-        print(box)
-        #box.ApplyLinearImpulse((10,5), box.worldCenter, True)
+        radius = 1
+        box = self.world.CreateDynamicBody(
+            position=(5, 5),
+            fixtures=fixtureDef(shape=circleShape(
+                radius=radius), density=1.0),
+        )
+        box.fixtures[0].sensor = True
+        box.linearDamping = .2
         box.userData = {"class":"obstacles"}
+        print(type(box.fixtures[0].shape) == Box2D.Box2D.b2CircleShape)
+        box.ApplyLinearImpulse((10,5), box.worldCenter, True)
+
+
+        box2 = self.world.CreateStaticBody()
+        box2.CreatePolygonFixture(vertices = [(x[0] + 20, x[1] + 20) for x in self.box], density=1000)
