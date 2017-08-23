@@ -5,7 +5,7 @@ import numpy as np
 import sys
 sys.path.append('..')
 
-#from Agent import Agent
+from gym_capturethehack.Agent import Agent
 
 import Box2D
 from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef, contactListener,
@@ -19,6 +19,11 @@ from gym.utils import colorize, seeding
 import pyglet
 from pyglet import gl
 
+from enum import Enum
+class EntityType(Enum):
+    AGENT = 1
+    OBSTACLE = 2
+    BULLET = 3
 
 
 STATE_W = 96   # less than Atari 160x192
@@ -39,9 +44,43 @@ class ContactListener(contactListener):
         self._contact(contact, False)
 
     def _contact(self, contact, begin):
-        print(contact)
-        print("contact!")
+
+        u1 = contact.fixtureA.body.userData
+        u2 = contact.fixtureB.body.userData
+
+        if 'class' not in u1 or 'class' not in u2:
+            return None
+
+        if u1['class'] == EntityType.AGENT:
+            if u2['class'] == EntityType.BULLET:
+                if 'agent' in u1 and 'agent' in u2:
+                    Agent.kill(u2['agent'], u1['agent'])
+
+        if u2['class'] == EntityType.AGENT:
+            if u1['class'] == EntityType.BULLET:
+                if 'agent' in u1 and 'agent' in u2:
+                    Agent.kill(u1['agent'], u2['agent'])
+
+        if u1['class'] == EntityType.BULLET:
+            if u2['class'] == EntityType.OBSTACLE:
+                u1['toBeDestroyed'] = True
+
+        if u2['class'] == EntityType.BULLET:
+            if u1['class'] == EntityType.OBSTACLE:
+                u2['toBeDestroyed'] = True
+
         return None
+
+def drawCircle(body, factor, color = (0.4, 0.8, 0.4, 1.0), numPoints = 10):
+    gl.glColor4f(color[0], color[1], color[2], color[3])
+    radius = body.fixtures[0].shape.radius
+    pos = body.position
+    for i in range(numPoints):
+        angle = radians(float(i) / numPoints * 360.0)
+        x = radius * cos(angle) + pos[0]
+        y = radius * sin(angle) + pos[1]
+        gl.glVertex3f(x * factor, y * factor, 0)
+    gl.glColor4f(0.4, 0.9, 0.4, 1.0)
 
 
 class CaptureTheHackEnv(gym.Env):
@@ -74,8 +113,14 @@ class CaptureTheHackEnv(gym.Env):
         return None
 
     def _step(self, action):
+        for body in self.world.bodies:
+            if 'toBeDestroyed' in body.userData and body.userData['toBeDestroyed'] == True:
+                1 + 2
+                self.world.DestroyBody(body)
+
         self.world.Step(1.0/FPS, 6*30, 2*30)
         self.t += 1.0 / FPS
+
 
     def _render(self, mode='human', close=False):
         if close:
@@ -126,16 +171,30 @@ class CaptureTheHackEnv(gym.Env):
         gl.glEnd()
         for body in self.world.bodies:
             gl.glBegin(gl.GL_POLYGON)
-            body.ApplyLinearImpulse((12, 10), body.worldCenter, True)
+            #body.ApplyLinearImpulse((12, 10), body.worldCenter, True)
             pos = body.position
-            if type(body.fixtures[0].shape) == Box2D.Box2D.b2CircleShape:
-                radius = body.fixtures[0].shape.radius
-                numPoints = 100
-                for i in range(numPoints):
-                    angle = radians(float(i) / numPoints * 360.0)
-                    x = radius * cos(angle) + pos[0]
-                    y = radius * sin(angle) + pos[1]
-                    gl.glVertex3f(x*factor, y*factor, 0)
+
+            if body.userData['class'] == EntityType.AGENT:
+                color = None
+                if body.userData['agent'].team == 0:
+                    color = (0.1, .9, .6, 1)
+                elif body.userData['agent'].team == 1:
+                    color = (1, 0, 1, 1)
+                drawCircle(body, factor, color)
+            elif body.userData['class'] == EntityType.BULLET:
+                color = (1,0,0,1)
+                drawCircle(body, factor, color)
+
+
+            #if type(body.fixtures[0].shape) == Box2D.Box2D.b2CircleShape:
+            #    drawCircle(body, factor)
+                #radius = body.fixtures[0].shape.radius
+                #numPoints = 100
+                #for i in range(numPoints):
+                #    angle = radians(float(i) / numPoints * 360.0)
+                #    x = radius * cos(angle) + pos[0]
+                #    y = radius * sin(angle) + pos[1]
+                #    gl.glVertex3f(x*factor, y*factor, 0)
 
             elif type(body.fixtures[0].shape) == Box2D.Box2D.b2PolygonShape:
                 for point in body.fixtures[0].shape.vertices:
@@ -144,20 +203,58 @@ class CaptureTheHackEnv(gym.Env):
             gl.glEnd()
 
     def _create_world(self):
-        self.box = [(0,0),(0, 10) , (10, 10), (10,0)]
+        self.box = [(0,0),(0, 10), (10, 10), (10,0)]
         radius = 5
-        box = self.world.CreateDynamicBody(
+        agent1_body = self.world.CreateDynamicBody(
             position=(5, 5),
             fixtures=fixtureDef(shape=circleShape(
                 radius=radius), density=1),
         )
         #box.fixtures[0].sensor = True
-        box.linearDamping = .002
-        box.userData = {"class":"obstacles"}
-        print(box.fixtures[0].shape)
-        box.ApplyLinearImpulse((12,10), box.worldCenter, True)
+        agent = Agent(team=0, id=0)
+        agent.body = agent1_body
+
+        agent1_body.linearDamping = .002
+        agent1_body.userData = {"class": EntityType.AGENT, 'agent': agent}
+        agent1_body.angle = pi/4
+        print(agent1_body.fixtures[0].shape)
+        #box.ApplyLinearImpulse((12,10), box.worldCenter, True)
+        self.agentShoot(agent)
 
 
         box2 = self.world.CreateStaticBody()
         box2.CreatePolygonFixture(vertices = [(x[0] + 20, x[1] + 20) for x in self.box], density=1000)
+        box2.userData = {"class": EntityType.OBSTACLE}
+
+
+
+
+        agent2 = Agent(team=1, id=1)
+        agent2_body = self.world.CreateDynamicBody(
+            position=(50, 50),
+            fixtures=fixtureDef(shape=circleShape(
+                radius=radius), density=1),
+        )
+        #box.fixtures[0].sensor = True
+        agent2_body.linearDamping = .002
+        agent2_body.userData = {'agent':agent2,"class": EntityType.AGENT}
+        agent2_body.angle = pi/4
+
+
+    def agentShoot(self, agent):
+        agentPos = agent.body.position
+        agentRotation = agent.body.angle
+        x = cos(agentRotation)
+        y = sin(agentRotation)
+        radius = agent.body.fixtures[0].shape.radius
+        bullet = self.world.CreateDynamicBody(
+            position=(agentPos[0] + radius*x, agentPos[1] + radius*y),
+            fixtures=fixtureDef(shape=circleShape(
+                radius=0.5), density=1),
+        )
+        bullet.fixtures[0].sensor = True
+        bullet.userData = {'agent': agent, 'class': EntityType.BULLET}
+        bullet.ApplyLinearImpulse((10*x,10*y), bullet.worldCenter, True)
+        bullet.linearDamping = 0
+
 
