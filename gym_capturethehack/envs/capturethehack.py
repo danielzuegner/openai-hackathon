@@ -2,6 +2,8 @@ import sys, math
 from math import *
 import numpy as np
 
+#from matplotlib import  pyplot as plt
+
 import sys
 sys.path.append('..')
 
@@ -24,6 +26,7 @@ from pyglet import gl
 STATE_W = 96   # less than Atari 160x192
 STATE_H = 96
 UPSCALE_FACTOR = 10
+PLAYFIELD = 40
 
 FPS = 50
 
@@ -57,7 +60,6 @@ class CaptureTheHackEnv(gym.Env):
 
         self.action_space = spaces.Box( np.array([-1,0,0]), np.array([+1,+1,+1]))  # steer, gas, brake
         self.observation_space = spaces.Box(low=0, high=255, shape=(STATE_H, STATE_W, 3))
-
         self.viewer = None
 
     def _seed(self, seed=None):
@@ -108,21 +110,27 @@ class CaptureTheHackEnv(gym.Env):
         t.enable()
         self._render_world(WIDTH, HEIGHT, factor)
         t.disable()
-        win.flip()
-        #if mode == 'human':
-        #    win.flip()
+        if mode == 'human':
+            win.flip()
+        if mode == 'state_pixels':
+            image_data = pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
+            arr = np.fromstring(image_data.data, dtype=np.uint8, sep='')
+            arr = arr.reshape(HEIGHT, WIDTH, 4)
+            arr = arr[::-1, :, 0:3]
+            #plt.imshow(arr)
+            #plt.show()
         return arr
 
 
     def _render_world(self, WIDTH, HEIGHT, factor):
-        PLAYFIELD = 200 / 6 * factor  # Game over boundary
+        playfield = PLAYFIELD * factor  # Game over boundary
         gl.glBegin(gl.GL_QUADS)
-        gl.glColor4f(0.4, 0.8, 0.4, 1.0)
-        gl.glVertex3f(-PLAYFIELD + WIDTH / 2, +PLAYFIELD + HEIGHT / 2, 0)
-        gl.glVertex3f(+PLAYFIELD + WIDTH / 2, +PLAYFIELD + HEIGHT / 2, 0)
-        gl.glVertex3f(+PLAYFIELD + WIDTH / 2, -PLAYFIELD + HEIGHT / 2, 0)
-        gl.glVertex3f(-PLAYFIELD + WIDTH / 2, -PLAYFIELD + HEIGHT / 2, 0)
-        gl.glColor4f(0.4, 0.9, 0.4, 1.0)
+        gl.glColor4f(0.3, 0.3, 0.3, 1.0)
+        gl.glVertex3f(-playfield + WIDTH / 2, +playfield + HEIGHT / 2, 0)
+        gl.glVertex3f(+playfield + WIDTH / 2, +playfield + HEIGHT / 2, 0)
+        gl.glVertex3f(+playfield + WIDTH / 2, -playfield + HEIGHT / 2, 0)
+        gl.glVertex3f(-playfield + WIDTH / 2, -playfield + HEIGHT / 2, 0)
+        gl.glColor4f(1, 1, 1, 1.0)
         gl.glEnd()
         for body in self.world.bodies:
             gl.glBegin(gl.GL_POLYGON)
@@ -145,6 +153,24 @@ class CaptureTheHackEnv(gym.Env):
 
     def _create_world(self):
         self.box = [(0,0),(0, 10) , (10, 10), (10,0)]
+
+        upperWallBox =   [(-PLAYFIELD + STATE_W / 2, + PLAYFIELD + STATE_H / 2),
+                          (+PLAYFIELD + STATE_W / 2, + PLAYFIELD + STATE_H / 2),
+                          (-PLAYFIELD + STATE_W / 2, + PLAYFIELD + STATE_H / 2 + 1),
+                          (+PLAYFIELD + STATE_W / 2, + PLAYFIELD + STATE_H / 2 + 1)]
+        lowerWallBox =   [(-PLAYFIELD + STATE_W / 2, - PLAYFIELD + STATE_H / 2),
+                          (+PLAYFIELD + STATE_W / 2, - PLAYFIELD + STATE_H / 2),
+                          (-PLAYFIELD + STATE_W / 2, - PLAYFIELD + STATE_H / 2 + 1),
+                          (+PLAYFIELD + STATE_W / 2, - PLAYFIELD + STATE_H / 2 + 1)]
+        leftWallBox =  [(-PLAYFIELD + STATE_W / 2, + PLAYFIELD + STATE_H / 2),
+                        (-PLAYFIELD + STATE_W / 2, - PLAYFIELD + STATE_H / 2),
+                        (-PLAYFIELD + STATE_W / 2 + 1, + PLAYFIELD + STATE_H / 2),
+                        (-PLAYFIELD + STATE_W / 2 + 1, - PLAYFIELD + STATE_H / 2)]
+        rightWallBox = [(+PLAYFIELD + STATE_W / 2, + PLAYFIELD + STATE_H / 2),
+                        (+PLAYFIELD + STATE_W / 2, - PLAYFIELD + STATE_H / 2),
+                        (+PLAYFIELD + STATE_W / 2 - 1, + PLAYFIELD + STATE_H / 2),
+                        (+PLAYFIELD + STATE_W / 2 - 1, - PLAYFIELD + STATE_H / 2)]
+
         radius = 5
         box = self.world.CreateDynamicBody(
             position=(5, 5),
@@ -155,9 +181,20 @@ class CaptureTheHackEnv(gym.Env):
         box.linearDamping = .002
         box.userData = {"class":"obstacles"}
         print(box.fixtures[0].shape)
-        box.ApplyLinearImpulse((12,10), box.worldCenter, True)
+        box.ApplyAngularImpulse(-1, True)
 
 
         box2 = self.world.CreateStaticBody()
         box2.CreatePolygonFixture(vertices = [(x[0] + 20, x[1] + 20) for x in self.box], density=1000)
 
+        upperWall = self.world.CreateStaticBody()
+        upperWall.CreatePolygonFixture(vertices=upperWallBox, density=100000)
+
+        lowerWall = self.world.CreateStaticBody()
+        lowerWall.CreatePolygonFixture(vertices=lowerWallBox, density=100000)
+
+        leftWall = self.world.CreateStaticBody()
+        leftWall.CreatePolygonFixture(vertices=leftWallBox, density=100000)
+
+        rightWall = self.world.CreateStaticBody()
+        rightWall.CreatePolygonFixture(vertices=rightWallBox, density=100000)
