@@ -6,4 +6,5 @@ env = gym.make('CaptureTheHack-v0')
 
 env.reset()
 while True:
+    env.step(None)
     env.render()
