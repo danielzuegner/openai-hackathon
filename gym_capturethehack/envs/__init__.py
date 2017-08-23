@@ -1,0 +1,1 @@
+from gym_capturethehack.envs.capturethehack import CaptureTheHackEnv

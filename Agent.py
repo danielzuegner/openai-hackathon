@@ -3,14 +3,11 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(config["logging_level"])
 
-class EnvironmentManager:
+class Agent:
 
-    def __init__(self):
+    def __init__(self, team):
+        self.team = team
         return
 
-    def split_actions(self, actions):
-
-        return
-
-    def merge_states(self):
+    def get_next_action(self):
         return
