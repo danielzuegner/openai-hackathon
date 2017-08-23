@@ -68,7 +68,8 @@ class CaptureTheHackEnv(gym.Env):
         return None
 
     def _step(self, action):
-        return None
+        self.world.Step(1.0/FPS, 6*30, 2*30)
+        self.t += 1.0 / FPS
 
     def _render(self, mode='human', close=False):
         if close:
@@ -108,6 +109,14 @@ class CaptureTheHackEnv(gym.Env):
             #gl.glVertex3f(-PLAYFIELD, -PLAYFIELD, 0)
             gl.glColor4f(0.4, 0.9, 0.4, 1.0)
             gl.glEnd()
+            gl.glBegin(gl.GL_QUADS)
+            for body in self.world.bodies:
+                print(body)
+                body.ApplyLinearImpulse((10, 5), body.worldCenter, True)
+                pos = body.position
+                for point in body.fixtures[0].shape.vertices:
+                    gl.glVertex3f(point[0]+pos[0],point[1]+pos[1],0)
+            gl.glEnd()
 
             for geom in self.viewer.onetime_geoms:
                 geom.render()
@@ -118,8 +127,8 @@ class CaptureTheHackEnv(gym.Env):
 
 
     def _render_world(self):
-        print(self.box)
-
+        #print(self.box)
+        return None
 
     def _render_indicators(selfself, W, H):
         gl.glBegin(gl.GL_QUADS)
@@ -135,6 +144,8 @@ class CaptureTheHackEnv(gym.Env):
     def _create_world(self):
         self.box = [(0,0),(0, 100) , (100, 100), (100,0)]
 
-        self.world.CreateStaticBody(fixtures=fixtureDef(
-            shape=polygonShape(vertices=self.box)
-        ))
+        box = self.world.CreateDynamicBody()
+        box.CreatePolygonFixture(vertices=self.box, density=0.000001)
+        print(box)
+        #box.ApplyLinearImpulse((10,5), box.worldCenter, True)
+        box.userData = {"class":"obstacles"}
