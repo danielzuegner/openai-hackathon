@@ -1,8 +1,14 @@
 import sys, math
 import numpy as np
 
+import sys
+sys.path.append('..')
+
+#from Agent import Agent
+
 import Box2D
-from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef, contactListener)
+from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef, contactListener,
+                      circleShape)
 
 import gym
 from gym import spaces
@@ -35,6 +41,8 @@ class ContactListener(contactListener):
         self._contact(contact, False)
 
     def _contact(self, contact, begin):
+        print(contact)
+        print("contact!")
         return None
 
 
@@ -111,8 +119,8 @@ class CaptureTheHackEnv(gym.Env):
             gl.glEnd()
             gl.glBegin(gl.GL_QUADS)
             for body in self.world.bodies:
-                print(body)
-                body.ApplyLinearImpulse((10, 5), body.worldCenter, True)
+                #print(body)
+                #body.ApplyLinearImpulse((10, 5), body.worldCenter, True)
                 pos = body.position
                 for point in body.fixtures[0].shape.vertices:
                     gl.glVertex3f(point[0]+pos[0],point[1]+pos[1],0)
@@ -142,10 +150,19 @@ class CaptureTheHackEnv(gym.Env):
         gl.glEnd()
 
     def _create_world(self):
-        self.box = [(0,0),(0, 100) , (100, 100), (100,0)]
-
-        box = self.world.CreateDynamicBody()
-        box.CreatePolygonFixture(vertices=self.box, density=0.000001)
-        print(box)
-        #box.ApplyLinearImpulse((10,5), box.worldCenter, True)
+        self.box = [(0,0),(0, 100), (100, 100), (100,0)]
+        radius = 10
+        box = self.world.CreateDynamicBody(
+            position=(50, 50),
+            fixtures=fixtureDef(shape=circleShape(
+                radius=radius), density=1.0),
+        )
+        box.fixtures[0].sensor = True
+        box.linearDamping = .2
         box.userData = {"class":"obstacles"}
+        print(type(box.fixtures[0].shape) == Box2D.Box2D.b2CircleShape)
+        box.ApplyLinearImpulse((100,50), box.worldCenter, True)
+
+
+        box2 = self.world.CreateStaticBody()
+        box2.CreatePolygonFixture(vertices = [(x[0] + 200, x[1] + 200) for x in self.box], density=1000)
