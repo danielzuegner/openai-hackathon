@@ -1,3 +1,5 @@
+import numpy as np
+
 class AgentManager:
 
     agents = []
@@ -7,7 +9,4 @@ class AgentManager:
         return
 
     def merge_actions(self):
-        return
-
-    def split_states(self):
         return
