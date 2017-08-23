@@ -3,9 +3,12 @@ import numpy as np
 from config import config
 
 class QLearner:
-    def __init__(self, output_dim, number_of_team_members):
+    def __init__(self, number_of_team_members):
         """ init the model with hyper-parameters etc """
         self.previous_q = None
+        self.previous_action = None
+        self.y = 0.8 # Discount factor
+        self.e = 0.1 # Epsilon for e-greedy choice
         
         move = np.linspace(-1.0, 1.0, 21)
         rotation = np.linspace(-1, 1, 21)
@@ -23,7 +26,7 @@ class QLearner:
         self.flatcomm = tf.concat([self.flat, self.comm], axis=1)
         self.fc1 = tf.layers.dense(self.flatcomm, units=1200, activation=tf.nn.elu, name="fc1")
         self.fc2 = tf.layers.dense(self.fc1, units=1000, activation=tf.nn.elu, name="fc2")
-        self.out = tf.layers.dense(self.fc2, units=self.output_dim, name="out")
+        self.out = tf.layers.dense(self.fc2, units=len(self.actions), name="out")
         self.predict = tf.argmax(self.out, axis=1)
 
         self.sess = tf.Session()
@@ -31,7 +34,8 @@ class QLearner:
     def inference(self, img, comm):
         o, p = self.sess.run([self.out, self.predict], feed_dict={self.img: img, self.comm: comm})
         self.previous_q = o
-        return self.actions[p[0]]
+        self.previous_action = self.actions[p[0]] # TODO: Choose action in a epsilon greedy manner
+        return o, self.actions[p[0]]
 
 
     def loss(self, batch_x, batch_y=None):
