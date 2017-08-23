@@ -1,8 +1,14 @@
 import sys, math
 import numpy as np
 
+import sys
+sys.path.append('..')
+
+#from Agent import Agent
+
 import Box2D
-from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef, contactListener)
+from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef, contactListener,
+                      circleShape)
 
 import gym
 from gym import spaces
@@ -16,10 +22,7 @@ from pyglet import gl
 
 STATE_W = 96   # less than Atari 160x192
 STATE_H = 96
-VIDEO_W = 600
-VIDEO_H = 400
-WINDOW_W = 1200
-WINDOW_H = 1000
+UPSCALE_FACTOR = 10
 
 FPS = 50
 
@@ -35,12 +38,14 @@ class ContactListener(contactListener):
         self._contact(contact, False)
 
     def _contact(self, contact, begin):
+        print(contact)
+        print("contact!")
         return None
 
 
 class CaptureTheHackEnv(gym.Env):
     metadata = {
-        'render.modes': ['human'],
+        'render.modes': ['human','state_pixels'],
         'video.frames_per_second' : FPS
     }
 
@@ -77,75 +82,71 @@ class CaptureTheHackEnv(gym.Env):
                 self.viewer.close()
                 self.viewer = None
             return
+        print(mode)
+        if mode == 'state_pixels':
+            WIDTH = STATE_W
+            HEIGHT = STATE_H
+            factor = 1
+        if mode == 'human':
+            WIDTH = STATE_W * UPSCALE_FACTOR
+            HEIGHT = STATE_H * UPSCALE_FACTOR
+            factor = UPSCALE_FACTOR
 
         if self.viewer is None:
             from gym.envs.classic_control import rendering
-            self.viewer = rendering.Viewer(WINDOW_W, WINDOW_H)
-            self.score_label = pyglet.text.Label('0000', font_size=36,
-                x=20, y=WINDOW_H*2.5/40.00, anchor_x='left', anchor_y='center',
-                color=(255,255,255,255))
+            self.viewer = rendering.Viewer(WIDTH, HEIGHT)
             self.transform = rendering.Transform()
 
         win = self.viewer.window
         win.switch_to()
         win.dispatch_events()
-        if mode == 'human':
-            self.human_render = True
-            win.clear()
-            t = self.transform
-            gl.glViewport(0, 0, WINDOW_W, WINDOW_H)
-            t.enable()
-            self._render_world()
-            PLAYFIELD = 2000 / 6  # Game over boundary
-            gl.glBegin(gl.GL_QUADS)
-            gl.glColor4f(0.4, 0.8, 0.4, 1.0)
-            gl.glVertex3f(-PLAYFIELD + WINDOW_W / 2, +PLAYFIELD + WINDOW_H / 2, 0)
-            gl.glVertex3f(+PLAYFIELD + WINDOW_W / 2, +PLAYFIELD + WINDOW_H / 2, 0)
-            gl.glVertex3f(+PLAYFIELD + WINDOW_W / 2, -PLAYFIELD + WINDOW_H / 2, 0)
-            gl.glVertex3f(-PLAYFIELD + WINDOW_W / 2, -PLAYFIELD + WINDOW_H / 2, 0)
-            #gl.glVertex3f(-PLAYFIELD, +PLAYFIELD, 0)
-            #gl.glVertex3f(+PLAYFIELD, +PLAYFIELD, 0)
-            #gl.glVertex3f(+PLAYFIELD, -PLAYFIELD, 0)
-            #gl.glVertex3f(-PLAYFIELD, -PLAYFIELD, 0)
-            gl.glColor4f(0.4, 0.9, 0.4, 1.0)
-            gl.glEnd()
-            gl.glBegin(gl.GL_QUADS)
-            for body in self.world.bodies:
-                print(body)
-                body.ApplyLinearImpulse((10, 5), body.worldCenter, True)
-                pos = body.position
-                for point in body.fixtures[0].shape.vertices:
-                    gl.glVertex3f(point[0]+pos[0],point[1]+pos[1],0)
-            gl.glEnd()
+        win.clear()
+        t = self.transform
+        arr = None
 
-            for geom in self.viewer.onetime_geoms:
-                geom.render()
-            t.disable()
-            #self._render_indicators(WINDOW_W, WINDOW_H)
-            win.flip()
-        self.viewer.onetime_geoms = []
+        gl.glViewport(0, 0, WIDTH, HEIGHT)
+        t.enable()
+        self._render_world(WIDTH, HEIGHT, factor)
+        t.disable()
+        win.flip()
+        #if mode == 'human':
+        #    win.flip()
+        return arr
 
 
-    def _render_world(self):
-        #print(self.box)
-        return None
-
-    def _render_indicators(selfself, W, H):
+    def _render_world(self, WIDTH, HEIGHT, factor):
+        PLAYFIELD = 200 / 6 * factor  # Game over boundary
         gl.glBegin(gl.GL_QUADS)
-        s = W/40.0
-        h = H/40.0
-        gl.glColor4f(0,0,0,1)
-        gl.glVertex3f(W, 0, 0)
-        gl.glVertex3f(W, 5*h, 0)
-        gl.glVertex3f(0, 5*h, 0)
-        gl.glVertex3f(0, 0, 0)
+        gl.glColor4f(0.4, 0.8, 0.4, 1.0)
+        gl.glVertex3f(-PLAYFIELD + WIDTH / 2, +PLAYFIELD + HEIGHT / 2, 0)
+        gl.glVertex3f(+PLAYFIELD + WIDTH / 2, +PLAYFIELD + HEIGHT / 2, 0)
+        gl.glVertex3f(+PLAYFIELD + WIDTH / 2, -PLAYFIELD + HEIGHT / 2, 0)
+        gl.glVertex3f(-PLAYFIELD + WIDTH / 2, -PLAYFIELD + HEIGHT / 2, 0)
+        gl.glColor4f(0.4, 0.9, 0.4, 1.0)
+        gl.glEnd()
+        gl.glBegin(gl.GL_QUADS)
+        for body in self.world.bodies:
+            print(body)
+            body.ApplyLinearImpulse((10, 5), body.worldCenter, True)
+            pos = body.position
+            for point in body.fixtures[0].shape.vertices:
+                gl.glVertex3f((point[0] + pos[0])*factor, (point[1] + pos[1])*factor, 0)
         gl.glEnd()
 
     def _create_world(self):
-        self.box = [(0,0),(0, 100) , (100, 100), (100,0)]
-
-        box = self.world.CreateDynamicBody()
-        box.CreatePolygonFixture(vertices=self.box, density=0.000001)
-        print(box)
-        #box.ApplyLinearImpulse((10,5), box.worldCenter, True)
+        self.box = [(0,0),(0, 10) , (10, 10), (10,0)]
+        radius = 1
+        box = self.world.CreateDynamicBody(
+            position=(5, 5),
+            fixtures=fixtureDef(shape=circleShape(
+                radius=radius), density=1.0),
+        )
+        box.fixtures[0].sensor = True
+        box.linearDamping = .2
         box.userData = {"class":"obstacles"}
+        print(type(box.fixtures[0].shape) == Box2D.Box2D.b2CircleShape)
+        box.ApplyLinearImpulse((10,5), box.worldCenter, True)
+
+
+        box2 = self.world.CreateStaticBody()
+        box2.CreatePolygonFixture(vertices = [(x[0] + 20, x[1] + 20) for x in self.box], density=1000)
