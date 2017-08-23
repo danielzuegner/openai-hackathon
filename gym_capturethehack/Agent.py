@@ -11,4 +11,8 @@ class Agent:
         return
 
     def get_next_action(self, agent_state):
-        return
+        if self.learn_type == "Q":
+            return get_action_Q(agent_state)
+
+    def get_action_Q(agent_state):
+       
