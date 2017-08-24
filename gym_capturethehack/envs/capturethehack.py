@@ -2,6 +2,8 @@ import sys, math
 from math import *
 import numpy as np
 
+import colorsys
+
 from matplotlib import  pyplot as plt
 
 import sys
@@ -10,6 +12,8 @@ sys.path.append('..')
 from gym_capturethehack.Agent import Agent
 from gym_capturethehack.config import config
 from gym_capturethehack.EnvironmentManager import EnvironmentManager
+from gym_capturethehack.AgentState import AgentState
+from gym_capturethehack.Observation import Observation
 
 import Box2D
 from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef, contactListener,
@@ -32,7 +36,7 @@ class EntityType(Enum):
 
 STATE_W = config["image_size"][0]
 STATE_H = config["image_size"][1]
-UPSCALE_FACTOR = 5
+UPSCALE_FACTOR = 10
 PLAYFIELD = (STATE_W + STATE_H) / 5
 
 FPS = 50
@@ -122,7 +126,7 @@ class CaptureTheHackEnv(gym.Env):
         self.agents = []
         for id, agents in enumerate(config["team_counts"]):
             for agent in range(agents):
-                agent_object = Agent(team=id, id = agent)
+                agent_object = Agent(team=id, id=agent)
                 self.agents.append(agent_object)
 
         self.env_manager = EnvironmentManager()
@@ -158,11 +162,24 @@ class CaptureTheHackEnv(gym.Env):
         self._destroy()
         for agent in self.agents:
             agent.body = None
-
+        self.human_render = False
         self.time = 0.0
         self._create_world()
         self.teams_members_alive = list(config['team_counts'])
-        return None
+
+        self._render('human')
+        obs = Observation()
+        for agent in self.agents:
+            frame = self._render('state_pixels', agent.team, agent.id)
+            state = AgentState(frame, agent.reward)
+            obs.set_agent_state(agent.team, agent.id, state=state)
+
+        output = self.env_manager.observation_to_observation_space(obs)
+
+        return output
+
+
+    #    return None
 
     def _step(self, action):
 
@@ -200,9 +217,17 @@ class CaptureTheHackEnv(gym.Env):
         self.world.Step(1.0/FPS, 6*30, 2*30)
         self.time += 1.0 / FPS
 
-        return None, 0, self.done, {}
+        obs = Observation()
+        for agent in self.agents:
+            frame = self._render('state_pixels', agent.team, agent.id)
+            state = AgentState(frame, agent.reward)
+            obs.set_agent_state(agent.team, agent.id, state=state)
 
-    def _render(self, mode='human', close=False):
+        output = self.env_manager.observation_to_observation_space(obs)
+
+        return output, 0, self.done, {}
+
+    def _render(self, mode='human', team_id = -1, agent_id = -1, close=False):
         if close:
             if self.viewer is not None:
                 self.viewer.close()
@@ -227,26 +252,46 @@ class CaptureTheHackEnv(gym.Env):
             self.transform = rendering.Transform()
 
         win = self.viewer.window
-        win.switch_to()
-        win.dispatch_events()
+        if mode == 'human':
+            win.switch_to()
+            win.dispatch_events()
+
+        if not self.human_render:
+            win.flip()
         win.clear()
         t = self.transform
         arr = None
-
         gl.glViewport(0, 0, WIDTH, HEIGHT)
         t.enable()
-        self._render_world(WIDTH, HEIGHT, factor)
+        self._render_world(WIDTH, HEIGHT, factor, team_id, agent_id)
         t.disable()
         if mode == 'human':
+            self.human_render = True
             win.flip()
         if mode == 'state_pixels':
-            arr = self.viewer.get_array()
-            plt.imshow(arr)
-            plt.show()
+            image_data = pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
+            arr = np.fromstring(image_data.data, dtype=np.uint8, sep='')
+            arr = arr.reshape(HEIGHT, WIDTH, 4)
+            arr = arr[::-1, :, 0:3]
+            #arr = self.viewer.get_array()
+            #plt.imshow(arr)
+            #plt.show()
         return arr
 
 
-    def _render_world(self, WIDTH, HEIGHT, factor):
+    def _render_world(self, WIDTH, HEIGHT, factor, team_id, agent_id):
+        n_teams = len(self.teams_members_alive)
+        team_colors = list(range(n_teams))
+        # human mode
+        if team_id == -1:
+            team_colors = [colorsys.hsv_to_rgb(i * 1.0 / n_teams, 0.5, 0.5)  + (1,) for i in range(n_teams)]
+        else:
+            for team in range(n_teams):
+                if team == team_id:
+                    team_colors[team] = config['team_color']
+                else:
+                    team_colors[team] = config['enemy_color']
+
         playfield = PLAYFIELD * factor  # Game over boundary
         color = (0.5, 0.5, 0.5)
         self.viewer.draw_polygon([(-playfield + WIDTH / 2, +playfield + HEIGHT / 2),(+playfield + WIDTH / 2, +playfield + HEIGHT / 2),
@@ -261,16 +306,19 @@ class CaptureTheHackEnv(gym.Env):
 
             if body.userData['class'] == EntityType.AGENT:
                 color = None
-                if body.userData['agent'].team == 0:
-                    if body.userData['communicate'] == 0:
-                        color = (0, 1, 0, 1)
-                    else:
-                        color = (0.5, 1, 0.5, 1)
-                elif body.userData['agent'].team == 1:
-                    if body.userData['communicate'] == 0:
-                        color = (1, 0, 1, 1)
-                    else:
-                        color = (0.7, 0.2, 0.7, 1)
+                agent = body.userData['agent']
+                if agent.team == team_id and agent.id == agent_id:
+                    color = config['self_color']
+                else:
+                    color = team_colors[agent.team]
+                color = list(color)
+                if body.userData['communicate'] == 1:
+                    for c in range(len(color)):
+                        if color[c] >= 1 - config['communication_color_add']:
+                            color[c] -=  config['communication_color_add']
+                        else:
+                            color[c] += config['communication_color_add']
+
                 drawCircle(body, factor, color)
 
                 drawOrientationIndicator(body, factor, color)
@@ -278,7 +326,7 @@ class CaptureTheHackEnv(gym.Env):
 
             elif body.userData['class'] == EntityType.BULLET:
                 #gl.glBegin(gl.GL_POLYGON)
-                color = (1,0,0,1)
+                color = config['bullet_color']
                 drawCircle(body, factor, color)
 
 

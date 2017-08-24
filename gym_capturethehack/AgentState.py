@@ -1,4 +1,4 @@
-class State:
+class AgentState:
     def __init__(self, frame, reward):
         self.frame = frame
         self.reward = reward

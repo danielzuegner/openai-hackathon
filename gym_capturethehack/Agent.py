@@ -20,19 +20,19 @@ class Agent:
         return self.get_action_Q(agent_state)
 
     def get_action_Q(self, agent_state):
-        prev_qs = self.learner.previous_q
-        prev_action = self.learner.previous_action
+        #prev_qs = self.learner.previous_q
+        #prev_action = self.learner.previous_action
 
-        frame = np.expand_dims(agent_state.frame, axis=0)
-        Qout, action = self.learner.inference(frame)
+        #frame = np.expand_dims(agent_state.frame, axis=0)
+        #Qout, action = self.learner.inference(frame)
 
-        Qmax = np.max(Qout)
-        targetQ = prev_qs
-        targetQ[0, prev_action[0]] = agent_state.reward + self.learner.y * Qmax
+        #Qmax = np.max(Qout)
+        #targetQ = prev_qs
+        #targetQ[0, prev_action[0]] = agent_state.reward + self.learner.y * Qmax
 
-        self.reward += agent_state.reward
+        #self.reward += agent_state.reward
 
-        self.learner.optimize(frame, targetQ)
-        return action
+        #self.learner.optimize(frame, targetQ)
+        return (0.5, -0.5, 1, 1) # action
 
        
