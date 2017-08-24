@@ -55,7 +55,6 @@ class AgentManager:
     def observation_space_to_observation(self, observation_space):
         team_counts = config["team_counts"]
 
-        print(observation_space)
 
         i = 0
         frames = observation_space[0]
@@ -64,7 +63,7 @@ class AgentManager:
 
         for team_id, agent_count in enumerate(team_counts):
             for agent_id in range(agent_count):
-                print(rewards[i])
+                #print(rewards[i])
                 state=AgentState(frame=frames[i, :, :, :], reward=rewards[i])
                 observation.set_agent_state(team_id, agent_id, state=state)
 

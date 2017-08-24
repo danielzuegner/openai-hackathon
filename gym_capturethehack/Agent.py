@@ -7,12 +7,13 @@ logger.setLevel(config["logging_level"])
 
 class Agent:
 
-    def __init__(self, team, id):
+    def __init__(self, team, id, learning=True):
         self.team = team
         self.id = id
         self.body = None
         self.is_alive = True
-        #self.learner = QLearner(config["team_counts"][self.team])
+        if learning:
+            self.learner = QLearner(config["team_counts"][self.team], self.team,self.id)
         self.reward = 0
         self.game_over = False # game is over for the team
 
@@ -20,19 +21,23 @@ class Agent:
         return self.get_action_Q(agent_state)
 
     def get_action_Q(self, agent_state):
-        #prev_qs = self.learner.previous_q
-        #prev_action = self.learner.previous_action
+        prev_qs = np.squeeze(np.array(self.learner.previous_q))
 
-        #frame = np.expand_dims(agent_state.frame, axis=0)
-        #Qout, action = self.learner.inference(frame)
+        #print("..")
+        #print(np.squeeze(np.array(prev_qs)).shape)
+        prev_action = self.learner.previous_action
 
-        #Qmax = np.max(Qout)
-        #targetQ = prev_qs
-        #targetQ[0, prev_action[0]] = agent_state.reward + self.learner.y * Qmax
+        frame = np.expand_dims(agent_state.frame, axis=0)
+        Qout, action = self.learner.inference(frame)
 
-        #self.reward += agent_state.reward
+        Qmax = np.max(Qout)
+        targetQ = prev_qs
+        targetQ[prev_action] = agent_state.reward + self.learner.y * Qmax
 
-        #self.learner.optimize(frame, targetQ)
-        return (0.5, -0.5, 1, 1) # action
+        self.reward += agent_state.reward
+
+        self.learner.optimize(frame, targetQ)
+        return action
+        #return (0.5, -0.5, 1, 1) # action
 
        

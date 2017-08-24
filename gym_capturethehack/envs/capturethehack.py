@@ -39,7 +39,7 @@ STATE_H = config["image_size"][1]
 UPSCALE_FACTOR = 10
 PLAYFIELD = (STATE_W + STATE_H) / 5
 
-FPS = 50
+FPS = 5
 
 class ContactListener(contactListener):
     def __init__(self, env):
@@ -126,7 +126,7 @@ class CaptureTheHackEnv(gym.Env):
         self.agents = []
         for id, agents in enumerate(config["team_counts"]):
             for agent in range(agents):
-                agent_object = Agent(team=id, id=agent)
+                agent_object = Agent(team=id, id=agent, learning=False)
                 self.agents.append(agent_object)
 
         self.env_manager = EnvironmentManager()

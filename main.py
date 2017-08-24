@@ -3,7 +3,7 @@ from gym_capturethehack.AgentManager import AgentManager
 
 env = gym.make('CaptureTheHack-v0')
 episodes = 20
-steps = 100
+steps = 5000
 
 agent_manager = AgentManager()
 
