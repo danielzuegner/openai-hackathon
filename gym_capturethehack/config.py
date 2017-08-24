@@ -3,7 +3,7 @@ import logging
 config = {
     "team_counts": (5, 5),
     "logging_level": logging.INFO,
-    "image_size": (128,128),
+    "image_size": (128,128,3),
     "actions_categories_counts": 4,
     "die_punishment": -100,
     "team_kill_punishment": -50,
