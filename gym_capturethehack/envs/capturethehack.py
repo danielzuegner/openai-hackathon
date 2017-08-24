@@ -112,7 +112,7 @@ class CaptureTheHackEnv(gym.Env):
         self.action_space = Tuple([spaces.Box( lower_dims, upper_dims ),             # (accelerate, decelerate), (steer left, steer right)
                                   MultiDiscrete([[0,1] for _ in range(n_agents)]),   # shoot or do not
                                   MultiDiscrete([[0,1] for _ in range(n_agents)])])  # communication bit
-        self.observation_space = spaces.Box(low=0, high=255, shape=(STATE_H, STATE_W, 3)) # all pixels
+        self.observation_space = spaces.Box(low=0, high=255, shape=(STATE_H, STATE_W, 3)) # all pixels ???
 
     def _seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -128,6 +128,9 @@ class CaptureTheHackEnv(gym.Env):
         return None
 
     def _step(self, action):
+
+        for agent in self.agents:
+            agent.reward = 0
 
         for body in self.world.bodies:
             if 'toBeDestroyed' in body.userData and body.userData['toBeDestroyed'] == True:
@@ -155,22 +158,30 @@ class CaptureTheHackEnv(gym.Env):
             if shoot == 1:
                 self.agentShoot(agent)
 
-
         self.world.Step(1.0/FPS, 6*30, 2*30)
         self.time += 1.0 / FPS
 
         teams_members_alive = list(range(len(config['team_counts'])))
+        team_rewards = list(range(len(config['team_counts'])))
         for team in teams_members_alive:
             teams_members_alive[team] = 0
+            team_rewards[team] = 0
 
         for agent in self.agents:
             if agent.is_alive:
                 teams_members_alive[agent.team] += 1
 
         teams_alive = 0
+
         for team in teams_members_alive:
             if teams_members_alive[team] > 0:
                 teams_alive += 1
+            else:
+                team_rewards[team] = -100
+
+        for agent in self.agents:
+            teams_members_alive[agent.team] += 1
+
 
         if teams_alive > 1:
             done = False
