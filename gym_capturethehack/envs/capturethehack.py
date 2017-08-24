@@ -60,13 +60,13 @@ class ContactListener(contactListener):
         if u1['class'] == EntityType.AGENT:
             if u2['class'] == EntityType.BULLET:
                 if 'agent' in u1 and 'agent' in u2:
-                    self.kill(u2['agent'], u1['agent'])
+                    self.env.kill(u2['agent'], u1['agent'])
                     u2['toBeDestroyed'] = True
 
         if u2['class'] == EntityType.AGENT:
             if u1['class'] == EntityType.BULLET:
                 if 'agent' in u1 and 'agent' in u2:
-                    self.kill(u1['agent'], u2['agent'])
+                    self.env.kill(u1['agent'], u2['agent'])
                     u1['toBeDestroyed'] = True
 
         if u1['class'] == EntityType.BULLET:
@@ -121,6 +121,7 @@ class CaptureTheHackEnv(gym.Env):
         self.viewer = None
         self.agents = []
         self.env_manager = EnvironmentManager()
+        self.teams_members_alive = None
 
         lower_dims = np.ones([n_agents, 2]) * -1
         upper_dims = np.ones([n_agents, 2]) * 1
@@ -141,7 +142,7 @@ class CaptureTheHackEnv(gym.Env):
         self._destroy()
         self.time = 0.0
         self._create_world()
-        teams_members_alive = list(config['team_counts'])
+        self.teams_members_alive = list(config['team_counts'])
         return None
 
     def _step(self, action):
@@ -155,11 +156,11 @@ class CaptureTheHackEnv(gym.Env):
         for ix, agent in enumerate(self.agents):
             if agent.is_alive == False or len(agent.body.fixtures) == 0:
                 continue
-
-            action = self.env_manager.get_agent_action(agent.team_id, agent.id)
-            movement = np.array([action[0], action[1]])
-            shoot = action[2]
-            communication_bit = action[3]
+            self.env_manager.split_actions(action)
+            _action = self.env_manager.get_agent_action(agent.team, agent.id)
+            movement = np.array([_action[0], _action[1]])
+            shoot = _action[2]
+            communication_bit = _action[3]
 
             body = agent.body
             angle = body.angle
@@ -375,7 +376,7 @@ class CaptureTheHackEnv(gym.Env):
         if self.teams_members_alive[agent2.team] == 0:
             self.give_team_reward(agent2.team, config['team_loss_punishment'], True, True)
 
-        team_members_alive_np = np.array(self.team_members_alive)
+        team_members_alive_np = np.array(self.teams_members_alive)
         if (team_members_alive_np > 0).sum() == 1:
             self.done = True
             team_alive = np.argmax(team_members_alive_np > 0)

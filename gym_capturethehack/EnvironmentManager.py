@@ -21,8 +21,8 @@ class EnvironmentManager:
         i = 0
         for team_id, agent_count in enumerate(team_counts):
             for agent_id in range(agent_count):
-                move = actions[0][i, 0]
-                rotation = actions[0][i, 1]
+                move = actions[0][i,0]
+                rotation = actions[0][i,1]
                 shoot = actions[1][i]
                 comm = actions[2][i]
                 self.agent_actions[(team_id, agent_id)] = (move, rotation, shoot, comm)
