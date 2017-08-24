@@ -24,7 +24,7 @@ class Agent:
         prev_action = self.learner.previous_action
 
         frame = np.expand_dims(agent_state.frame, axis=0)
-        Qout, action = self.learner.inference(frame, agent_state.communication_signals)
+        Qout, action = self.learner.inference(frame)
 
         Qmax = np.max(Qout)
         targetQ = prev_qs
@@ -32,7 +32,7 @@ class Agent:
 
         self.reward += agent_state.reward
 
-        self.learner.optimize(frame, agent_state.communication_signals, targetQ)
+        self.learner.optimize(frame, targetQ)
         return action
 
        
