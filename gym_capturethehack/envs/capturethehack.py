@@ -12,7 +12,7 @@ sys.path.append('..')
 from gym_capturethehack.Agent import Agent
 from gym_capturethehack.config import config
 from gym_capturethehack.EnvironmentManager import EnvironmentManager
-from gym_capturethehack.AgentState import State
+from gym_capturethehack.AgentState import AgentState
 from gym_capturethehack.Observation import Observation
 
 import Box2D
@@ -36,7 +36,7 @@ class EntityType(Enum):
 
 STATE_W = config["image_size"][0]
 STATE_H = config["image_size"][1]
-UPSCALE_FACTOR = 5
+UPSCALE_FACTOR = 10
 PLAYFIELD = (STATE_W + STATE_H) / 5
 
 FPS = 50
@@ -126,7 +126,7 @@ class CaptureTheHackEnv(gym.Env):
         self.agents = []
         for id, agents in enumerate(config["team_counts"]):
             for agent in range(agents):
-                agent_object = Agent(team=id, id = agent)
+                agent_object = Agent(team=id, id=agent)
                 self.agents.append(agent_object)
 
         self.env_manager = EnvironmentManager()
@@ -166,7 +166,20 @@ class CaptureTheHackEnv(gym.Env):
         self.time = 0.0
         self._create_world()
         self.teams_members_alive = list(config['team_counts'])
-        return None
+
+        self._render('human')
+        obs = Observation()
+        for agent in self.agents:
+            frame = self._render('state_pixels', agent.team, agent.id)
+            state = AgentState(frame, agent.reward)
+            obs.set_agent_state(agent.team, agent.id, state=state)
+
+        output = self.env_manager.observation_to_observation_space(obs)
+
+        return output
+
+
+    #    return None
 
     def _step(self, action):
 
@@ -207,12 +220,12 @@ class CaptureTheHackEnv(gym.Env):
         obs = Observation()
         for agent in self.agents:
             frame = self._render('state_pixels', agent.team, agent.id)
-            state = State(frame, agent.reward)
+            state = AgentState(frame, agent.reward)
             obs.set_agent_state(agent.team, agent.id, state=state)
 
-        self.env_manager.
+        output = self.env_manager.observation_to_observation_space(obs)
 
-        return None, 0, self.done, {}
+        return output, 0, self.done, {}
 
     def _render(self, mode='human', team_id = -1, agent_id = -1, close=False):
         if close:
