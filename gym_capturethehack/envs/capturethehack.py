@@ -60,13 +60,13 @@ class ContactListener(contactListener):
         if u1['class'] == EntityType.AGENT:
             if u2['class'] == EntityType.BULLET:
                 if 'agent' in u1 and 'agent' in u2:
-                    kill(u2['agent'], u1['agent'])
+                    self.kill(u2['agent'], u1['agent'])
                     u2['toBeDestroyed'] = True
 
         if u2['class'] == EntityType.AGENT:
             if u1['class'] == EntityType.BULLET:
                 if 'agent' in u1 and 'agent' in u2:
-                    kill(u1['agent'], u2['agent'])
+                    self.kill(u1['agent'], u2['agent'])
                     u1['toBeDestroyed'] = True
 
         if u1['class'] == EntityType.BULLET:
@@ -137,9 +137,11 @@ class CaptureTheHackEnv(gym.Env):
         return None
 
     def _reset(self):
+        self.done = False
         self._destroy()
         self.time = 0.0
         self._create_world()
+        teams_members_alive = list(config['team_counts'])
         return None
 
     def _step(self, action):
@@ -178,34 +180,7 @@ class CaptureTheHackEnv(gym.Env):
         self.world.Step(1.0/FPS, 6*30, 2*30)
         self.time += 1.0 / FPS
 
-        teams_members_alive = list(range(len(config['team_counts'])))
-        team_rewards = list(range(len(config['team_counts'])))
-        for team in teams_members_alive:
-            teams_members_alive[team] = 0
-            team_rewards[team] = 0
-
-        for agent in self.agents:
-            if agent.is_alive:
-                teams_members_alive[agent.team] += 1
-
-        teams_alive = 0
-
-        for team in teams_members_alive:
-            if teams_members_alive[team] > 0:
-                teams_alive += 1
-            else:
-                team_rewards[team] = -100
-
-        for agent in self.agents:
-            teams_members_alive[agent.team] += 1
-
-
-        if teams_alive > 1:
-            done = False
-        else:
-            done = True
-
-        return None, 0, done, {}
+        return None, 0, self.done, {}
 
     def _render(self, mode='human', close=False):
         if close:
@@ -381,18 +356,34 @@ class CaptureTheHackEnv(gym.Env):
         bullet.ApplyLinearImpulse((bullet_impulse*x,bullet_impulse*y), bullet.worldCenter, True)
         bullet.linearDamping = 0
 
-def kill(agent1, agent2):
-    """
-    :param agent1: the agent that killed agent2
-    :param agent2: the agent killed by agent1
-    """
-    print("Agent {} in team {} kills Agent {} of team {}".format(agent1.id, agent1.team, agent2.id, agent2.team))
-    agent2.body.userData['toBeDestroyed'] = True
-    agent2.is_alive = False
-    if agent1.team == agent2.team:
-        agent1.reward += config['team_kill_punishment']
-    else:
-        agent1.reward += config['kill_reward']
-    agent2.reward += config['die_punishment']
+    def kill(self, agent1, agent2):
+        """
+        :param agent1: the agent that killed agent2
+        :param agent2: the agent killed by agent1
+        """
+        print("Agent {} in team {} kills Agent {} of team {}".format(agent1.id, agent1.team, agent2.id, agent2.team))
+        agent2.body.userData['toBeDestroyed'] = True
+        agent2.is_alive = False
+        if agent1.team == agent2.team:
+            agent1.reward += config['team_kill_punishment']
+        else:
+            agent1.reward += config['kill_reward']
+            self.give_team_reward(agent1.team,config['assist_reward'])
+        agent2.reward += config['die_punishment']
 
-    return None
+        self.teams_members_alive[agent2.team] -= 1
+        if self.teams_members_alive[agent2.team] == 0:
+            self.give_team_reward(agent2.team, config['team_loss_punishment'], True, True)
+
+        team_members_alive_np = np.array(self.team_members_alive)
+        if (team_members_alive_np > 0).sum() == 1:
+            self.done = True
+            team_alive = np.argmax(team_members_alive_np > 0)
+            self.give_team_reward(team_alive, config['team_win_reward'], True, True)
+
+    def give_team_reward(self, team, reward, dead_receive_reward = False, game_over = False):
+        for agent in self.agents:
+            if agent.is_alive == True or dead_receive_reward:
+                if agent.team == team:
+                    agent.reward += reward
+                    agent.game_over = game_over
