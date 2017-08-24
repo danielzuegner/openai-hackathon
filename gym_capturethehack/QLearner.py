@@ -13,9 +13,9 @@ class QLearner:
         move = np.linspace(-1.0, 1.0, 21)
         rotation = np.linspace(-1, 1, 21)
         shoot = [0, 1]
-        self.actions = [(m, r, s) for m in move for r in rotation for s in shoot]
+        communicate = [0, 1]
+        self.actions = [(m, r, s, c) for m in move for r in rotation for s in shoot for c in communicate]
 
-        self.output_dim = output_dim
         self.number_of_team_members = number_of_team_members
 
         self.img = tf.placeholder(tf.float32, shape=(1,)+config["image_size"], name="image")
@@ -29,19 +29,25 @@ class QLearner:
         self.out = tf.layers.dense(self.fc2, units=len(self.actions), name="out")
         self.predict = tf.argmax(self.out, axis=1)
 
+        self.next_q = tf.placeholder(tf.float32, shape=(1, len(self.actions)))
+        self.loss = tf.reduce_sum(tf.squared_difference(self.next_q, self.out))
+
+        self.optimizer = tf.train.AdamOptimizer(0.001)
+        self.train = self.optimizer.minimize(self.loss)
+
         self.sess = tf.Session()
 
     def inference(self, img, comm):
         o, p = self.sess.run([self.out, self.predict], feed_dict={self.img: img, self.comm: comm})
         self.previous_q = o
-        self.previous_action = self.actions[p[0]] # TODO: Choose action in a epsilon greedy manner
-        return o, self.actions[p[0]]
 
+        action = self.actions[p[0]]
+        if np.random.rand() < self.e:
+            action = np.random.choice(self.actions)
+        self.previous_action = action
 
-    def loss(self, batch_x, batch_y=None):
-        y_predict = self.inference(batch_x)
-        self.loss = tf.loss_function(y, y_predict, name="loss") # supervised
-        # loss = tf.loss_function(x, y_predicted) # unsupervised
+        return (o, action)
 
-    def optimize(self, batch_x, batch_y):
-        return tf.train.AdamOptimizer(0.001).minimize(self.loss, name="optimizer")
+    def optimize(self, img, comm, target_Q):
+        _, l = self.sess.run([self.train, self.loss], feed_dict={self.next_q: target_Q, self.img: img, self.comm: comm})
+        return l
