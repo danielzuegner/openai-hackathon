@@ -127,7 +127,15 @@ class CaptureTheHackEnv(gym.Env):
         self.action_space = Tuple([spaces.Box( lower_dims, upper_dims ),             # (accelerate, decelerate), (steer left, steer right)
                                   MultiDiscrete([[0,1] for _ in range(n_agents)]),   # shoot or do not
                                   MultiDiscrete([[0,1] for _ in range(n_agents)])])  # communication bit
-        self.observation_space = spaces.Box(low=0, high=255, shape=(STATE_H, STATE_W, 3)) # all pixels ???
+
+        min_reward = config["min_reward"]
+        max_reward = config["max_reward"]
+
+
+        b = spaces.Box(low=0, high=255, shape=(n_agents, STATE_H, STATE_W, 3))
+        c = spaces.Box(low=min_reward, high=max_reward, shape=(n_agents, ))
+
+        self.observation_space = Tuple((b,c))
 
     def _seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
