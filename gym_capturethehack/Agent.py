@@ -10,6 +10,7 @@ class Agent:
         self.team = team
         self.id = id
         self.body = None
+        self.destroyed = False
         return
 
     def get_next_action(self, agent_state):
@@ -43,5 +44,6 @@ class Agent:
         print("Agent {} in team {} kills Agent {} of team {}".format(agent1.id, agent1.team, agent2.id, agent2.team))
 
         agent2.body.userData['toBeDestroyed'] = True
+        agent2.destroyed = True
         return None
        

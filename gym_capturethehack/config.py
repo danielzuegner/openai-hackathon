@@ -1,7 +1,7 @@
 import logging
 
 config = {
-    "team_counts": (2, 2),
+    "team_counts": (5, 5),
     "logging_level": logging.INFO,
-    "image_size": (96,96)
+    "image_size": (128,128)
 }
