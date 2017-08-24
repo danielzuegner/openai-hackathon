@@ -31,7 +31,7 @@ class EntityType(Enum):
 
 STATE_W = config["image_size"][0]
 STATE_H = config["image_size"][1]
-UPSCALE_FACTOR = 10
+UPSCALE_FACTOR = 5
 PLAYFIELD = (STATE_W + STATE_H) / 5
 
 FPS = 50
@@ -59,13 +59,13 @@ class ContactListener(contactListener):
         if u1['class'] == EntityType.AGENT:
             if u2['class'] == EntityType.BULLET:
                 if 'agent' in u1 and 'agent' in u2:
-                    Agent.kill(u2['agent'], u1['agent'])
+                    kill(u2['agent'], u1['agent'])
                     u2['toBeDestroyed'] = True
 
         if u2['class'] == EntityType.AGENT:
             if u1['class'] == EntityType.BULLET:
                 if 'agent' in u1 and 'agent' in u2:
-                    Agent.kill(u1['agent'], u2['agent'])
+                    kill(u1['agent'], u2['agent'])
                     u1['toBeDestroyed'] = True
 
         if u1['class'] == EntityType.BULLET:
@@ -133,7 +133,7 @@ class CaptureTheHackEnv(gym.Env):
             if 'toBeDestroyed' in body.userData and body.userData['toBeDestroyed'] == True:
                 self.world.DestroyBody(body)
         for ix, agent in enumerate(self.agents):
-            if agent.destroyed or len(agent.body.fixtures) == 0:
+            if agent.is_alive == False or len(agent.body.fixtures) == 0:
                 continue
             movement = action[0][ix]
             shoot = action[1][ix]
@@ -206,23 +206,12 @@ class CaptureTheHackEnv(gym.Env):
 
     def _render_world(self, WIDTH, HEIGHT, factor):
         playfield = PLAYFIELD * factor  # Game over boundary
-        #gl.glBegin(gl.GL_QUADS)
-        gl.glColor4f(0.7, 0.7, 0.7, 1.0)
-        #gl.glColor4f(1, 1, 1, 1.0)
         color = (0.5, 0.5, 0.5)
         self.viewer.draw_polygon([(-playfield + WIDTH / 2, +playfield + HEIGHT / 2),(+playfield + WIDTH / 2, +playfield + HEIGHT / 2),
                                          (+playfield + WIDTH / 2, -playfield + HEIGHT / 2),(-playfield + WIDTH / 2, -playfield + HEIGHT / 2)], color = color)
-        #self.viewer.draw_polygon([(0+ WIDTH / 2,0+ HEIGHT / 2),(10+ WIDTH / 2,0+ HEIGHT / 2),(10+ WIDTH / 2,-5+ HEIGHT / 2),(0+ WIDTH / 2,-5+ HEIGHT / 2)], color = color)
         self.viewer.draw_line((-playfield + WIDTH / 2, +playfield + HEIGHT / 2),(+playfield + WIDTH / 2, -playfield + HEIGHT / 2), color = color)
         for geom in self.viewer.onetime_geoms:
             geom.render()
-        #gl.glVertex3f(-playfield + WIDTH / 2, +playfield + HEIGHT / 2, 0)
-        #gl.glVertex3f(+playfield + WIDTH / 2, +playfield + HEIGHT / 2, 0)
-        #gl.glVertex3f(+playfield + WIDTH / 2, -playfield + HEIGHT / 2, 0)
-        #gl.glVertex3f(-playfield + WIDTH / 2, -playfield + HEIGHT / 2, 0)
-        #gl.glColor4f(1, 1, 1, 1.0)
-        #gl.glEnd()
-        #return
         for body in self.world.bodies:
             #body.ApplyLinearImpulse((12, 10), body.worldCenter, True)
             pos = body.position
@@ -331,7 +320,7 @@ class CaptureTheHackEnv(gym.Env):
         agentRotation = agent.body.angle
         x = cos(agentRotation)
         y = sin(agentRotation)
-        if agent.destroyed or len(agent.body.fixtures) == 0:
+        if agent.is_alive == False or len(agent.body.fixtures) == 0:
             return
         # a new shot is only allowed every 1.0 seconds
         if self.time - agent.body.userData['last_shot'] < 1.0:
@@ -350,4 +339,19 @@ class CaptureTheHackEnv(gym.Env):
         bullet.ApplyLinearImpulse((bullet_impulse*x,bullet_impulse*y), bullet.worldCenter, True)
         bullet.linearDamping = 0
 
+def kill(agent1, agent2):
+    """
+    :param agent1: the agent that killed agent2
+    :param agent2: the agent killed by agent1
+    """
+    print("Agent {} in team {} kills Agent {} of team {}".format(agent1.id, agent1.team, agent2.id, agent2.team))
+    agent2.body.userData['toBeDestroyed'] = True
+    agent2.is_alive = False
+    if agent1.team == agent2.team:
+        agent1.reward += config['team_kill_punishment']
+    else:
+        agent1.reward += config['kill_reward']
+    agent2.reward += config['die_punishment']
+
+    return None
 
