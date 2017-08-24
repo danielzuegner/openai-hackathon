@@ -9,6 +9,7 @@ sys.path.append('..')
 
 from gym_capturethehack.Agent import Agent
 from gym_capturethehack.config import config
+from gym_capturethehack.EnvironmentManager import EnvironmentManager
 
 import Box2D
 from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef, contactListener,
@@ -106,6 +107,7 @@ class CaptureTheHackEnv(gym.Env):
         self.world = Box2D.b2World((0, 0), contactListener=self.collisionDetector)
         self.viewer = None
         self.agents = []
+        self.env_manager = EnvironmentManager()
 
         lower_dims = np.ones([n_agents, 2]) * -1
         upper_dims = np.ones([n_agents, 2]) * 1
@@ -135,9 +137,11 @@ class CaptureTheHackEnv(gym.Env):
         for ix, agent in enumerate(self.agents):
             if agent.is_alive == False or len(agent.body.fixtures) == 0:
                 continue
-            movement = action[0][ix]
-            shoot = action[1][ix]
-            communication_bit = action[2][ix]
+
+            action = self.env_manager.get_agent_action(agent.team_id, agent.id)
+            movement = np.array([action[0], action[1]])
+            shoot = action[2]
+            communication_bit = action[3]
 
             body = agent.body
             angle = body.angle
