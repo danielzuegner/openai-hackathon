@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from config import config
+from gym_capturethehack.config import config
 
 class QLearner:
     def __init__(self, number_of_team_members):

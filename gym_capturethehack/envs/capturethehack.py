@@ -17,7 +17,7 @@ from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revolute
 import gym
 from gym import spaces
 from gym.utils import colorize, seeding
-
+from gym.spaces import MultiDiscrete, Tuple
 
 import pyglet
 from pyglet import gl
@@ -31,7 +31,7 @@ class EntityType(Enum):
 
 STATE_W = config["image_size"][0]
 STATE_H = config["image_size"][1]
-UPSCALE_FACTOR = 10
+UPSCALE_FACTOR = 5
 PLAYFIELD = (STATE_W + STATE_H) / 5
 
 FPS = 50
@@ -39,6 +39,7 @@ FPS = 50
 class ContactListener(contactListener):
     def __init__(self, env):
         contactListener.__init__(self)
+        self.agents = []
         self.env = env
 
     def BeginContact(self, contact):
@@ -98,13 +99,19 @@ class CaptureTheHackEnv(gym.Env):
     }
 
     def __init__(self):
+
+        n_agents = sum(config['team_counts'])
         self._seed()
         self.collisionDetector= ContactListener(self)
         self.world = Box2D.b2World((0, 0), contactListener=self.collisionDetector)
-
-        self.action_space = spaces.Box( np.array([-1,0,0]), np.array([+1,+1,+1]))  # steer, gas, brake
-        self.observation_space = spaces.Box(low=0, high=255, shape=(STATE_H, STATE_W, 3))
         self.viewer = None
+        self.agents = []
+
+        lower_dims = np.ones([n_agents, 2]) * -1
+        upper_dims = np.ones([n_agents, 2]) * 1
+        self.action_space = Tuple([spaces.Box( lower_dims, upper_dims ),
+                                  MultiDiscrete([[0,1] for _ in range(n_agents)])])  # steer, gas, brake
+        self.observation_space = spaces.Box(low=0, high=255, shape=(STATE_H, STATE_W, 3))
 
     def _seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -120,11 +127,31 @@ class CaptureTheHackEnv(gym.Env):
         return None
 
     def _step(self, action):
-        self.world.Step(1.0/FPS, 6*30, 2*30)
-        self.t += 1.0 / FPS
+
+
         for body in self.world.bodies:
             if 'toBeDestroyed' in body.userData and body.userData['toBeDestroyed'] == True:
                 self.world.DestroyBody(body)
+        for ix, agent in enumerate(self.agents):
+            movement = action[0][ix]
+            shoot = action[1][ix]
+
+            body = agent.body
+            angle = body.angle
+            pos = body.position
+            x = cos(angle)
+            y = sin(angle)
+            agent.body.ApplyLinearImpulse((movement[0] + x, movement[0] + y), body.worldCenter, True)
+
+            agent.body.ApplyAngularImpulse(movement[1], True)
+
+            if np.random.uniform(low=0,high=1) > 0.98:
+                self.agentShoot(agent)
+
+
+        self.world.Step(1.0/FPS, 6*30, 2*30)
+        self.t += 1.0 / FPS
+
 
     def _render(self, mode='human', close=False):
         if close:
@@ -194,11 +221,11 @@ class CaptureTheHackEnv(gym.Env):
                 pos = body.position
                 x = cos(angle)
                 y = sin(angle)
-                #gl.glBegin(gl.GL_LINES)
-                #gl.glColor4f(color[0], color[1], color[2], color[3])
-                #gl.glVertex3f(factor*pos[0], factor*pos[1], 0)
-                #gl.glVertex3f(factor*(pos[0] + 3*x), factor*(pos[1] + 3*y), 0)
-                #gl.glEnd()
+                gl.glBegin(gl.GL_LINES)
+                gl.glColor4f(color[0], color[1], color[2], color[3])
+                gl.glVertex3f(factor*pos[0], factor*pos[1], 0)
+                gl.glVertex3f(factor*(pos[0] + 3*x), factor*(pos[1] + 3*y), 0)
+                gl.glEnd()
 
             elif body.userData['class'] == EntityType.BULLET:
                 #gl.glBegin(gl.GL_POLYGON)
@@ -255,6 +282,7 @@ class CaptureTheHackEnv(gym.Env):
                 agent_body.linearDamping = .002
                 agent_body.angle = np.random.uniform(low=0, high=2*pi)
                 agent_body.userData = {"class": EntityType.AGENT, 'agent': agent_object}
+                self.agents.append(agent_object)
                 self.agentShoot(agent_object)
 
         #agent1_body.angle = pi/4
@@ -288,6 +316,8 @@ class CaptureTheHackEnv(gym.Env):
         agentRotation = agent.body.angle
         x = cos(agentRotation)
         y = sin(agentRotation)
+        if len(agent.body.fixtures) == 0:
+            return
         radius = agent.body.fixtures[0].shape.radius
         bullet = self.world.CreateDynamicBody(
             position=(agentPos[0] + 2*radius*x, agentPos[1] + 2*radius*y),

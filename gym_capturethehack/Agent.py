@@ -1,5 +1,5 @@
 from gym_capturethehack.config import config
-from QLearner import QLearner
+from gym_capturethehack.QLearner import QLearner
 import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(config["logging_level"])
