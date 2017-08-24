@@ -159,6 +159,25 @@ class CaptureTheHackEnv(gym.Env):
         self.world.Step(1.0/FPS, 6*30, 2*30)
         self.time += 1.0 / FPS
 
+        teams_members_alive = list(range(len(config['team_counts'])))
+        for team in teams_members_alive:
+            teams_members_alive[team] = 0
+
+        for agent in self.agents:
+            if agent.is_alive:
+                teams_members_alive[agent.team] += 1
+
+        teams_alive = 0
+        for team in teams_members_alive:
+            if teams_members_alive[team] > 0:
+                teams_alive += 1
+
+        if teams_alive > 1:
+            done = False
+        else:
+            done = True
+
+        return None, 0, done, {}
 
     def _render(self, mode='human', close=False):
         if close:
