@@ -1,6 +1,6 @@
-from Agent import Agent
+from gym_capturethehack.Agent import Agent
 import numpy as np
-from config import config
+from gym_capturethehack.config import config
 from Observation import Observation
 
 import logging
@@ -16,7 +16,7 @@ class AgentManager:
 
         for team_id, n in enumerate(config["team_counts"]):
             for agent_id in range(n):
-                self.teams_agents[(team_id, agent_id)] = Agent(team_id)
+                self.teams_agents[(team_id, agent_id)] = Agent(team_id, agent_id)
 
     def merge_actions(self, observation):
         """
@@ -24,12 +24,12 @@ class AgentManager:
 
             observation: Observation object that includes the states, rewards, and communication information for every agent
 
-            returns a numpy array with shape (number of agents, 2) that contains actions for every agent
+            returns a numpy array with shape (number of agents, number of categories of actions) that contains actions for every agent
         """
-        actions = np.zeros((len(self.teams_agents, 2))) # two action possibilities per agent (go forth/back, rotation to left/right)
+        actions = np.zeros((len(self.teams_agents), config["actions_categories_counts"]))
 
-        for team_id, agent_id in self.teams_agents:
+        for i, team_id, agent_id in enumerate(self.teams_agents):
             agent = self.teams_agents[(team_id, agent_id)]
-            actions[team_id, :] = agent.get_next_action(observation.get_agent_state(team_id, agent_id))
+            actions[i, :] = agent.get_next_action(observation.get_agent_state(team_id, agent_id))
 
         return actions
