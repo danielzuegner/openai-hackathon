@@ -29,6 +29,8 @@ class Agent:
         targetQ = prev_qs
         targetQ[0, prev_action[0]] = agent_state.reward + self.learner.y * Qmax
 
+        self.reward += agent_state.reward
+
         self.learner.optimize(frame, agent_state.communication_signals, targetQ)
         return action
 

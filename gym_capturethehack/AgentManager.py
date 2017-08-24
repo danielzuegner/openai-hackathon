@@ -1,4 +1,5 @@
 from gym_capturethehack.Agent import Agent
+from collections import defaultdict
 import numpy as np
 from gym_capturethehack.config import config
 from Observation import Observation
@@ -41,3 +42,11 @@ class AgentManager:
         actions = (move_rot, shoot, comm)
 
         return actions
+
+    def get_team_rewards():
+        team_rewards = defaultdict(int)
+
+        for ids, agent in self.teams_agents.items():
+            team_rewards[ids[0]] += agent.reward
+
+        return team_rewards
