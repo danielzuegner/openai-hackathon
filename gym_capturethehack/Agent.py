@@ -12,6 +12,7 @@ class Agent:
         self.id = id
         self.body = None
         self.is_alive = True
+        self.reward = 0
         self.learner = QLearner(config["team_count"][self.team])
         
     def get_next_action(self, agent_state):
@@ -27,6 +28,8 @@ class Agent:
         Qmax = np.max(Qout)
         targetQ = prev_qs
         targetQ[0, prev_action[0]] = agent_state.reward + self.learner.y * Qmax
+
+        self.reward += agent_state.reward
 
         self.learner.optimize(frame, agent_state.communication_signals, targetQ)
         return action
