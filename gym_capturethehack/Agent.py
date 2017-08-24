@@ -11,6 +11,7 @@ class Agent:
         self.team = team
         self.id = id
         self.body = None
+        self.is_alive = True
         self.learner = QLearner(config["team_count"][self.team])
         
     def get_next_action(self, agent_state):
@@ -28,6 +29,7 @@ class Agent:
         targetQ[0, prev_action[0]] = agent_state.reward + self.learner.y * Qmax
 
         self.learner.optimize(frame, agent_state.communication_signals, targetQ)
+        return action
 
     def kill(self, agent1, agent2):
         """
@@ -35,7 +37,7 @@ class Agent:
         :param agent2: the agent killed by agent1
         """
         print("Agent {} in team {} kills Agent {} of team {}".format(agent1.id, agent1.team, agent2.id, agent2.team))
-
+        self.is_alive = False
         agent2.body.userData['toBeDestroyed'] = True
         return None
        
