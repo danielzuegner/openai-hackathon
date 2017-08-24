@@ -23,3 +23,6 @@ def main():
             if done:
                 print("Episode finished after {} timesteps".format(t+1))
                 break
+    
+    for team_id, reward in agent_manager.get_team_rewards():
+        print("Team " + str(team_id) + " has obtained a total reward of: " + str(reward))
