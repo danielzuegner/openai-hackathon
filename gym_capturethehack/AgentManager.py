@@ -26,10 +26,18 @@ class AgentManager:
 
             returns a numpy array with shape (number of agents, number of categories of actions) that contains actions for every agent
         """
-        actions = np.zeros((len(self.teams_agents), config["actions_categories_counts"]))
-
+        move_rot = np.zeros[len(self.teams_agents), 2]
+        shoot = []
+        comm = []
+        
         for i, team_id, agent_id in enumerate(self.teams_agents):
             agent = self.teams_agents[(team_id, agent_id)]
-            actions[i, :] = agent.get_next_action(observation.get_agent_state(team_id, agent_id))
+            action = agent.get_next_action(observation.get_agent_state(team_id, agent_id))
+            move_rot[i, 0] = action[0]
+            move_rot[i, 1] = action[1]
+            shoot.append(action[2])
+            comm.append(action[3])
+        
+        actions = (move_rot, shoot, comm)
 
         return actions
