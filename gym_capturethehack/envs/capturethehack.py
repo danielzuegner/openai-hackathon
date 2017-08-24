@@ -60,13 +60,13 @@ class ContactListener(contactListener):
         if u1['class'] == EntityType.AGENT:
             if u2['class'] == EntityType.BULLET:
                 if 'agent' in u1 and 'agent' in u2:
-                    self.kill(u2['agent'], u1['agent'])
+                    self.env.kill(u2['agent'], u1['agent'])
                     u2['toBeDestroyed'] = True
 
         if u2['class'] == EntityType.AGENT:
             if u1['class'] == EntityType.BULLET:
                 if 'agent' in u1 and 'agent' in u2:
-                    self.kill(u1['agent'], u2['agent'])
+                    self.env.kill(u1['agent'], u2['agent'])
                     u1['toBeDestroyed'] = True
 
         if u1['class'] == EntityType.BULLET:
@@ -120,7 +120,13 @@ class CaptureTheHackEnv(gym.Env):
         self.world = Box2D.b2World((0, 0), contactListener=self.collisionDetector)
         self.viewer = None
         self.agents = []
+        for id, agents in enumerate(config["team_counts"]):
+            for agent in range(agents):
+                agent_object = Agent(team=id, id = agent)
+                self.agents.append(agent_object)
+
         self.env_manager = EnvironmentManager()
+        self.teams_members_alive = None
 
         lower_dims = np.ones([n_agents, 2]) * -1
         upper_dims = np.ones([n_agents, 2]) * 1
@@ -142,14 +148,20 @@ class CaptureTheHackEnv(gym.Env):
         return [seed]
 
     def _destroy(self):
+
+        for body in self.world.bodies:
+            self.world.DestroyBody(body)
         return None
 
     def _reset(self):
         self.done = False
         self._destroy()
+        for agent in self.agents:
+            agent.body = None
+
         self.time = 0.0
         self._create_world()
-        teams_members_alive = list(config['team_counts'])
+        self.teams_members_alive = list(config['team_counts'])
         return None
 
     def _step(self, action):
@@ -163,11 +175,11 @@ class CaptureTheHackEnv(gym.Env):
         for ix, agent in enumerate(self.agents):
             if agent.is_alive == False or len(agent.body.fixtures) == 0:
                 continue
-
-            action = self.env_manager.get_agent_action(agent.team_id, agent.id)
-            movement = np.array([action[0], action[1]])
-            shoot = action[2]
-            communication_bit = action[3]
+            self.env_manager.split_actions(action)
+            _action = self.env_manager.get_agent_action(agent.team, agent.id)
+            movement = np.array([_action[0], _action[1]])
+            shoot = _action[2]
+            communication_bit = _action[3]
 
             body = agent.body
             angle = body.angle
@@ -307,21 +319,19 @@ class CaptureTheHackEnv(gym.Env):
 
         radius = (STATE_H + STATE_W) / 100
 
-
-        for id, agents in enumerate(config["team_counts"]):
-            for agent in range(agents):
-                agent_object = Agent(team=id, id = agent)
-                agent_body = self.world.CreateDynamicBody(
-                    position=(np.random.uniform(low=lower_x + radius, high=upper_x - radius), np.random.uniform(low=lower_y + radius, high=upper_y - radius)),
-                    fixtures=fixtureDef(shape=circleShape(
-                        radius=radius), density=1),
-                 )
-                agent_object.body = agent_body
-                agent_body.linearDamping = .002
-                agent_body.angle = np.random.uniform(low=0, high=2*pi)
-                agent_body.userData = {"class": EntityType.AGENT, 'agent': agent_object, 'last_shot': self.time, 'toBeDestroyed': False, 'communicate': 0}
-                self.agents.append(agent_object)
-                self.agentShoot(agent_object)
+        for agent in self.agents:
+            agent_body = self.world.CreateDynamicBody(
+                position=(np.random.uniform(low=lower_x + radius, high=upper_x - radius), np.random.uniform(low=lower_y + radius, high=upper_y - radius)),
+                fixtures=fixtureDef(shape=circleShape(
+                    radius=radius), density=1),
+             )
+            agent.body = agent_body
+            agent_body.linearDamping = .002
+            agent_body.angle = np.random.uniform(low=0, high=2*pi)
+            agent_body.userData = {"class": EntityType.AGENT, 'agent': agent, 'last_shot': self.time, 'toBeDestroyed': False, 'communicate': 0}
+            agent.is_alive = True
+            agent.game_over = False
+            agent.reward = 0
 
         upperWall = self.world.CreateStaticBody()
         upperWall.CreatePolygonFixture(vertices=upperWallBox, density=100000)
@@ -383,7 +393,7 @@ class CaptureTheHackEnv(gym.Env):
         if self.teams_members_alive[agent2.team] == 0:
             self.give_team_reward(agent2.team, config['team_loss_punishment'], True, True)
 
-        team_members_alive_np = np.array(self.team_members_alive)
+        team_members_alive_np = np.array(self.teams_members_alive)
         if (team_members_alive_np > 0).sum() == 1:
             self.done = True
             team_alive = np.argmax(team_members_alive_np > 0)
