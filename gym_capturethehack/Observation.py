@@ -1,5 +1,5 @@
 import numpy as np
-from config import config
+from gym_capturethehack.config import config
 
 class Observation:
     def __init__(self):
