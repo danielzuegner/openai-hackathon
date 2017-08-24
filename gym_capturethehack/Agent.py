@@ -14,6 +14,7 @@ class Agent:
         self.is_alive = True
         #self.learner = QLearner(config["team_counts"][self.team])
         self.reward = 0
+        self.game_over = False # game is over for the team
 
     def get_next_action(self, agent_state):
         return self.get_action_Q(agent_state)
