@@ -91,6 +91,19 @@ def drawCircle(body, factor, color = (0.4, 0.8, 0.4, 1.0), numPoints = 100):
     gl.glColor4f(0.4, 0.9, 0.4, 1.0)
     gl.glEnd()
 
+def drawOrientationIndicator(body, factor, color, length=2):
+    angle = body.angle
+    pos = body.position
+    body_radius = body.fixtures[0].shape.radius
+    len = body_radius + length
+    x = cos(angle)
+    y = sin(angle)
+    gl.glBegin(gl.GL_LINES)
+    gl.glColor4f(color[0], color[1], color[2], color[3])
+    gl.glVertex3f(factor * pos[0], factor * pos[1], 0)
+    gl.glVertex3f(factor * (pos[0] + len * x), factor * (pos[1] + len * y), 0)
+    gl.glEnd()
+
 
 class CaptureTheHackEnv(gym.Env):
     metadata = {
@@ -212,6 +225,7 @@ class CaptureTheHackEnv(gym.Env):
         self.viewer.draw_line((-playfield + WIDTH / 2, +playfield + HEIGHT / 2),(+playfield + WIDTH / 2, -playfield + HEIGHT / 2), color = color)
         for geom in self.viewer.onetime_geoms:
             geom.render()
+        self.viewer.onetime_geoms = []
         for body in self.world.bodies:
             #body.ApplyLinearImpulse((12, 10), body.worldCenter, True)
             pos = body.position
@@ -229,15 +243,9 @@ class CaptureTheHackEnv(gym.Env):
                     else:
                         color = (0.7, 0.2, 0.7, 1)
                 drawCircle(body, factor, color)
-                angle = body.angle
-                pos = body.position
-                x = cos(angle)
-                y = sin(angle)
-                gl.glBegin(gl.GL_LINES)
-                gl.glColor4f(color[0], color[1], color[2], color[3])
-                gl.glVertex3f(factor*pos[0], factor*pos[1], 0)
-                gl.glVertex3f(factor*(pos[0] + 3*x), factor*(pos[1] + 3*y), 0)
-                gl.glEnd()
+
+                drawOrientationIndicator(body, factor, color)
+
 
             elif body.userData['class'] == EntityType.BULLET:
                 #gl.glBegin(gl.GL_POLYGON)
@@ -354,4 +362,3 @@ def kill(agent1, agent2):
     agent2.reward += config['die_punishment']
 
     return None
-
