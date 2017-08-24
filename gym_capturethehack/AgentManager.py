@@ -50,3 +50,23 @@ class AgentManager:
             team_rewards[ids[0]] += agent.reward
 
         return team_rewards
+
+    def observation_space_to_observation(observation_space):
+        team_counts = config["team_counts"]
+
+        i = 0
+        frames = observation_space[0]
+        rewards = observation_space[1]
+        observation = Observation()
+
+        for team_id, agent_count in enumerate(team_counts):
+            for agent_id in range(agent_count):
+                
+                state=AgentState(frame=frames[i], reward=rewards[i])
+                observation.set_agent_state(team_id, agent_id, state=state)
+
+                i += 1
+
+        return observation
+
+

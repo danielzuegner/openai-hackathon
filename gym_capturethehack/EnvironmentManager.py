@@ -1,4 +1,5 @@
 from gym_capturethehack.config import config
+from gym.spaces import Tuple
 import numpy as np
 import logging
 logger = logging.getLogger(__name__)
@@ -34,3 +35,23 @@ class EnvironmentManager:
             First entry is the positional force and the second entry is the rotational force.
         """
         return self.agent_actions[(team_id, agent_id)]
+
+    def observation_to_observation_space(self, observation):
+        frames_list = list()
+        rewards_list = list()
+
+        team_counts = config["team_counts"]
+
+        for team_id, agent_count in enumerate(team_counts):
+            for agent_id in range(agent_count):
+                state = observation.get_agent_state(team_id, agent_id)
+                frames_list.append(state.frame)
+                rewards_list.append(state.reward)
+            
+        
+        return (np.array(frames_list), rewards_list)
+
+
+
+        
+

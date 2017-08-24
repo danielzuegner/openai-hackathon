@@ -34,6 +34,6 @@ class Observation:
     def __repr__(self):
         stringRepr = None
         for key, value in self.agent_states.items():
-            stringRepr += str(value.communication_signals) + str(value.reward)
+            stringRepr += "Agent with ID " + str(key[0]) + " from team with ID " +str(key[0]) + " has reward: " + str(value.reward)
 
         return stringRepr            

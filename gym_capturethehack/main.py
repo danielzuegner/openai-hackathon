@@ -17,7 +17,8 @@ def main():
             env.render()
             print(observation)
             
-            cumulative_action = agent_manager.merge_actions(observation)
+            observation_proc = agent_manager.observation_space_to_observation(observation)
+            cumulative_action = agent_manager.merge_actions(observation_proc)
             observation, reward, done, info = env.step(cumulative_action)
             
             if done:
