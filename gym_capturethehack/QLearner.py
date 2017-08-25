@@ -17,8 +17,6 @@ class QLearner:
         shoot = [0, 1]
         communicate = [0, 1]
         self.actions = [(m, r, s, c) for m in move for r in rotation for s in shoot for c in communicate]
-        print("actions")
-        print(len(self.actions))
         self.previous_q = [0 for _ in self.actions]
         self.previous_action = 0
         self.number_of_team_members = number_of_team_members
@@ -26,8 +24,7 @@ class QLearner:
         self.img = tf.placeholder(tf.float32, shape=(1,)+config["image_size"], name="{}-{}_image".format(id, team))
         self.conv1 = tf.layers.conv2d(self.img, filters=8, kernel_size=8, strides=4, activation=tf.nn.elu, name="{}-{}_conv1".format(id,team))
         self.conv2 = tf.layers.conv2d(self.conv1, filters=16, kernel_size=4, strides=3, activation=tf.nn.elu, name="{}-{}_conv2".format(id,team))
-        self.pool = tf.layers.max_pooling2d(self.conv2, pool_size=2, strides=2)
-        self.flat = tf.contrib.layers.flatten(self.pool)
+        self.flat = tf.contrib.layers.flatten(self.conv2)
         self.fc1 = tf.layers.dense(self.flat, units=30, activation=tf.nn.elu, name="{}-{}_fc1".format(id,team))
         self.fc2 = tf.layers.dense(self.fc1, units=10, activation=tf.nn.elu, name="{}-{}_fc2".format(id,team))
         self.out = tf.layers.dense(self.fc2, units=len(self.actions), name="{}-{}_out".format(id,team))
