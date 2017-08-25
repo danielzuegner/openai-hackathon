@@ -40,4 +40,7 @@ class Agent:
         return action
         #return (0.5, -0.5, 1, 1) # action
 
+    def print_weight_statistics(self):
+        self.learner.print_statistics()
+
        

@@ -2,7 +2,7 @@ import gym
 from gym_capturethehack.AgentManager import AgentManager
 
 env = gym.make('CaptureTheHack-v0')
-episodes = 20
+episodes = 20000
 steps = 5000
 
 agent_manager = AgentManager()
@@ -21,6 +21,6 @@ for i_episode in range(episodes):
         if done:
             print("Episode finished after {} timesteps".format(t+1))
             break
-
+print(agent_manager.get_team_rewards())
 for team_id, reward in agent_manager.get_team_rewards():
     print("Team " + str(team_id) + " has obtained a total reward of: " + str(reward))

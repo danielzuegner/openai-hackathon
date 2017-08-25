@@ -1,7 +1,7 @@
 import logging
 
 config = {
-    "team_counts": (3, 3),
+    "team_counts": (2, 2),
     "team_color" : (0,0,1,1),
     "enemy_color": (1,0,0,1),
     "self_color": (0,1,0,1),

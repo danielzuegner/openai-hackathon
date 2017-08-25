@@ -15,6 +15,7 @@ class AgentManager:
 
     def __init__(self):
         logger.debug("Initializing Agent Manager")
+        self.learning_iterations = 0
 
         for team_id, n in enumerate(config["team_counts"]):
             for agent_id in range(n):
@@ -42,9 +43,16 @@ class AgentManager:
         
         actions = (move_rot, shoot, comm)
 
+        if self.learning_iterations % 1000 == 0:
+            for i, (team_id, agent_id) in enumerate(self.teams_agents):
+                agent = self.teams_agents[(team_id, agent_id)]
+                agent.print_weight_statistics()
+        self.learning_iterations +=1
+
+
         return actions
 
-    def get_team_rewards():
+    def get_team_rewards(self):
         team_rewards = defaultdict(int)
 
         for ids, agent in self.teams_agents.items():
@@ -54,8 +62,6 @@ class AgentManager:
 
     def observation_space_to_observation(self, observation_space):
         team_counts = config["team_counts"]
-
-
         i = 0
         frames = observation_space[0]
         rewards = observation_space[1]
