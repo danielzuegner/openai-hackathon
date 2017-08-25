@@ -10,13 +10,15 @@ class QLearner:
         self.e = 0.1 # Epsilon for e-greedy choice
         self.id = id
         self.team = team
-        
-        move = np.linspace(-1.0, 1.0, 21)
-        rotation = np.linspace(-1, 1, 21)
+
+        discretization_step = 0.5
+        move = np.arange(-1.0, 1.0 + discretization_step, discretization_step)
+        rotation = np.arange(-1, 1 + discretization_step, discretization_step)
         shoot = [0, 1]
         communicate = [0, 1]
         self.actions = [(m, r, s, c) for m in move for r in rotation for s in shoot for c in communicate]
-
+        print("actions")
+        print(len(self.actions))
         self.previous_q = [0 for _ in self.actions]
         self.previous_action = 0
         self.number_of_team_members = number_of_team_members

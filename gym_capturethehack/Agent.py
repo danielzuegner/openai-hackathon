@@ -21,6 +21,12 @@ class Agent:
         return self.get_action_Q(agent_state)
 
     def get_action_Q(self, agent_state):
+        if not self.is_alive:
+            if self.game_over:
+                self.reward += agent_state.reward
+            return (0, 0, 0, 0)
+        if self.game_over:
+            self.reward += agent_state.reward
         prev_qs = np.squeeze(np.array(self.learner.previous_q))
 
         #print("..")
