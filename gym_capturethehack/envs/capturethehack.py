@@ -36,10 +36,10 @@ class EntityType(Enum):
 
 STATE_W = config["image_size"][0]
 STATE_H = config["image_size"][1]
-UPSCALE_FACTOR = 10
+UPSCALE_FACTOR = 5
 PLAYFIELD = (STATE_W + STATE_H) / 5
 
-FPS = 5
+FPS = 7
 
 class ContactListener(contactListener):
     def __init__(self, env):
@@ -83,7 +83,7 @@ class ContactListener(contactListener):
 
         return None
 
-def drawCircle(body, factor, color = (0.4, 0.8, 0.4, 1.0), numPoints = 100):
+def drawCircle(body, factor, color = (0.4, 0.8, 0.4, 1.0), numPoints = 10):
     gl.glBegin(gl.GL_POLYGON)
     gl.glColor4f(color[0], color[1], color[2], color[3])
     radius = body.fixtures[0].shape.radius
@@ -131,6 +131,8 @@ class CaptureTheHackEnv(gym.Env):
 
         self.env_manager = EnvironmentManager()
         self.teams_members_alive = None
+        self.n_teams = 0
+        self.agent_radius = 0
 
         lower_dims = np.ones([n_agents, 2]) * -1
         upper_dims = np.ones([n_agents, 2]) * 1
@@ -166,20 +168,13 @@ class CaptureTheHackEnv(gym.Env):
         self.time = 0.0
         self._create_world()
         self.teams_members_alive = list(config['team_counts'])
+        self.n_teams = len(self.teams_members_alive)
 
         self._render('human')
-        obs = Observation()
-        for agent in self.agents:
-            frame = self._render('state_pixels', agent.team, agent.id)
-            state = AgentState(frame, agent.reward)
-            obs.set_agent_state(agent.team, agent.id, state=state)
-
+        obs = self._render('state_pixels')
         output = self.env_manager.observation_to_observation_space(obs)
 
         return output
-
-
-    #    return None
 
     def _step(self, action):
 
@@ -203,10 +198,13 @@ class CaptureTheHackEnv(gym.Env):
             pos = body.position
             x = cos(angle)
             y = sin(angle)
+            sq = self.agent_radius * self.agent_radius
             # acceleration / deceleration
-            agent.body.ApplyLinearImpulse((movement[0] + x, movement[0] + y), body.worldCenter, True)
+            # mass is computed as pi * r^2
+            agent.body.ApplyLinearImpulse(((movement[0] + x)/2*sq, (movement[0] + y)/2*sq), body.worldCenter, True)
             # steering
-            agent.body.ApplyAngularImpulse(movement[1], True)
+            # inertia is computed as pi/2 * r^4
+            agent.body.ApplyAngularImpulse((movement[1])/6*sq*sq, True)
             # communication
 
             agent.body.userData['communicate'] = communication_bit
@@ -217,17 +215,12 @@ class CaptureTheHackEnv(gym.Env):
         self.world.Step(1.0/FPS, 6*30, 2*30)
         self.time += 1.0 / FPS
 
-        obs = Observation()
-        for agent in self.agents:
-            frame = self._render('state_pixels', agent.team, agent.id)
-            state = AgentState(frame, agent.reward)
-            obs.set_agent_state(agent.team, agent.id, state=state)
-
+        obs = self._render('state_pixels')
         output = self.env_manager.observation_to_observation_space(obs)
 
         return output, 0, self.done, {}
 
-    def _render(self, mode='human', team_id = -1, agent_id = -1, close=False):
+    def _render(self, mode='human', close=False):
         if close:
             if self.viewer is not None:
                 self.viewer.close()
@@ -260,37 +253,28 @@ class CaptureTheHackEnv(gym.Env):
             win.flip()
         win.clear()
         t = self.transform
-        arr = None
         gl.glViewport(0, 0, WIDTH, HEIGHT)
         t.enable()
-        self._render_world(WIDTH, HEIGHT, factor, team_id, agent_id)
+        self._render_world(WIDTH, HEIGHT, factor)
         t.disable()
+        obs = Observation()
         if mode == 'human':
             self.human_render = True
+            self.draw_agents(-1,-1, factor)
             win.flip()
         if mode == 'state_pixels':
-            image_data = pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
-            arr = np.fromstring(image_data.data, dtype=np.uint8, sep='')
-            arr = arr.reshape(HEIGHT, WIDTH, 4)
-            arr = arr[::-1, :, 0:3]
-            #arr = self.viewer.get_array()
-            #plt.imshow(arr)
-            #plt.show()
-        return arr
+            for agent in self.agents:
+                self.draw_agents(agent.team, agent.id, factor)
+                image_data = pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
+                arr = np.fromstring(image_data.data, dtype=np.uint8, sep='')
+                arr = arr.reshape(HEIGHT, WIDTH, 4)
+                arr = arr[::-1, :, 0:3]
+                state = AgentState(arr, agent.reward)
+                obs.set_agent_state(agent.team, agent.id, state=state)
+        return obs
 
 
-    def _render_world(self, WIDTH, HEIGHT, factor, team_id, agent_id):
-        n_teams = len(self.teams_members_alive)
-        team_colors = list(range(n_teams))
-        # human mode
-        if team_id == -1:
-            team_colors = [colorsys.hsv_to_rgb(i * 1.0 / n_teams, 0.5, 0.5)  + (1,) for i in range(n_teams)]
-        else:
-            for team in range(n_teams):
-                if team == team_id:
-                    team_colors[team] = config['team_color']
-                else:
-                    team_colors[team] = config['enemy_color']
+    def _render_world(self, WIDTH, HEIGHT, factor):
 
         playfield = PLAYFIELD * factor  # Game over boundary
         color = (0.5, 0.5, 0.5)
@@ -301,12 +285,41 @@ class CaptureTheHackEnv(gym.Env):
             geom.render()
         self.viewer.onetime_geoms = []
         for body in self.world.bodies:
-            #body.ApplyLinearImpulse((12, 10), body.worldCenter, True)
             pos = body.position
+            if body.userData['class'] == EntityType.BULLET:
+                #gl.glBegin(gl.GL_POLYGON)
+                color = config['bullet_color']
+                drawCircle(body, factor, color)
 
+            elif type(body.fixtures[0].shape) == Box2D.Box2D.b2PolygonShape:
+                gl.glBegin(gl.GL_POLYGON)
+                color = (1, 1, 1, 1)
+                gl.glColor4f(color[0], color[1], color[2], color[3])
+                for point in body.fixtures[0].shape.vertices:
+                    gl.glVertex3f((point[0] + pos[0])*factor, (point[1] + pos[1])*factor, 0)
+                gl.glEnd()
+
+    def compute_team_colors(self, team_id, agent_id):
+        team_colors = list(range(self.n_teams))
+        # human mode
+        if team_id == -1:
+            team_colors = [colorsys.hsv_to_rgb(i * 1.0 / self.n_teams, 0.5, 0.5) + (1,) for i in range(self.n_teams)]
+        else:
+            for team in range(self.n_teams):
+                if team == team_id:
+                    team_colors[team] = config['team_color']
+                else:
+                    team_colors[team] = config['enemy_color']
+        return team_colors
+
+    def draw_agents(self, team_id, agent_id, factor):
+        team_colors = self.compute_team_colors(team_id, agent_id)
+        for agent in self.agents:
+            if agent.is_alive == False or len(agent.body.fixtures) == 0:
+                continue
+            body = agent.body
             if body.userData['class'] == EntityType.AGENT:
                 color = None
-                agent = body.userData['agent']
                 if agent.team == team_id and agent.id == agent_id:
                     color = config['self_color']
                 else:
@@ -320,23 +333,7 @@ class CaptureTheHackEnv(gym.Env):
                             color[c] += config['communication_color_add']
 
                 drawCircle(body, factor, color)
-
                 drawOrientationIndicator(body, factor, color)
-
-
-            elif body.userData['class'] == EntityType.BULLET:
-                #gl.glBegin(gl.GL_POLYGON)
-                color = config['bullet_color']
-                drawCircle(body, factor, color)
-
-
-            elif type(body.fixtures[0].shape) == Box2D.Box2D.b2PolygonShape:
-                gl.glBegin(gl.GL_POLYGON)
-                color = (1, 1, 1, 1)
-                gl.glColor4f(color[0], color[1], color[2], color[3])
-                for point in body.fixtures[0].shape.vertices:
-                    gl.glVertex3f((point[0] + pos[0])*factor, (point[1] + pos[1])*factor, 0)
-                gl.glEnd()
 
 
     def _create_world(self):
@@ -365,16 +362,18 @@ class CaptureTheHackEnv(gym.Env):
                         (upper_x - wall_thickness, + upper_y),
                         (upper_x - wall_thickness, + lower_y)]
 
-        radius = (STATE_H + STATE_W) / 100
+        self.agent_radius = (STATE_H + STATE_W) / 100
+        #self.agent_radius = 4
 
         for agent in self.agents:
             agent_body = self.world.CreateDynamicBody(
-                position=(np.random.uniform(low=lower_x + radius, high=upper_x - radius), np.random.uniform(low=lower_y + radius, high=upper_y - radius)),
+                position=(np.random.uniform(low=lower_x + self.agent_radius, high=upper_x - self.agent_radius), np.random.uniform(low=lower_y + self.agent_radius, high=upper_y - self.agent_radius)),
                 fixtures=fixtureDef(shape=circleShape(
-                    radius=radius), density=1),
+                    radius=self.agent_radius), density=1),
              )
             agent.body = agent_body
             agent_body.linearDamping = .002
+            print(agent_body)
             agent_body.angle = np.random.uniform(low=0, high=2*pi)
             agent_body.userData = {"class": EntityType.AGENT, 'agent': agent, 'last_shot': self.time, 'toBeDestroyed': False, 'communicate': 0}
             agent.is_alive = True
@@ -409,8 +408,8 @@ class CaptureTheHackEnv(gym.Env):
         if self.time - agent.body.userData['last_shot'] < 1.0:
             return
         agent.body.userData['last_shot'] = self.time
-        bullet_radius = 0.5
-        bullet_impulse = 35
+        bullet_radius = self.agent_radius / 4
+        bullet_impulse = 140 * bullet_radius * bullet_radius
         radius = agent.body.fixtures[0].shape.radius
         bullet = self.world.CreateDynamicBody(
             position=(agentPos[0] + (bullet_radius + radius + 1)*x, agentPos[1] + (bullet_radius + radius + 1)*y),
