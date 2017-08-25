@@ -201,7 +201,8 @@ class CaptureTheHackEnv(gym.Env):
             sq = self.agent_radius * self.agent_radius
             # acceleration / deceleration
             # mass is computed as pi * r^2
-            agent.body.ApplyLinearImpulse(((movement[0] + x)/2*sq, (movement[0] + y)/2*sq), body.worldCenter, True)
+           # agent.body.ApplyLinearImpulse(((movement[0] + x)/2*sq, (movement[0] + y)/2*sq), body.worldCenter, True)
+            agent.body.ApplyLinearImpulse(((movement[0] * x)/2*sq, (movement[0] * y)/2*sq), body.worldCenter, True)
             # steering
             # inertia is computed as pi/2 * r^4
             agent.body.ApplyAngularImpulse((movement[1])/6*sq*sq, True)
@@ -373,7 +374,6 @@ class CaptureTheHackEnv(gym.Env):
              )
             agent.body = agent_body
             agent_body.linearDamping = .002
-            print(agent_body)
             agent_body.angle = np.random.uniform(low=0, high=2*pi)
             agent_body.userData = {"class": EntityType.AGENT, 'agent': agent, 'last_shot': self.time, 'toBeDestroyed': False, 'communicate': 0}
             agent.is_alive = True

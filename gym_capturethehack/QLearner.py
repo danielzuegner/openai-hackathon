@@ -26,16 +26,17 @@ class QLearner:
         self.img = tf.placeholder(tf.float32, shape=(1,)+config["image_size"], name="{}-{}_image".format(id, team))
         self.conv1 = tf.layers.conv2d(self.img, filters=8, kernel_size=8, strides=4, activation=tf.nn.elu, name="{}-{}_conv1".format(id,team))
         self.conv2 = tf.layers.conv2d(self.conv1, filters=16, kernel_size=4, strides=3, activation=tf.nn.elu, name="{}-{}_conv2".format(id,team))
-        self.flat = tf.contrib.layers.flatten(self.conv2)
-        self.fc1 = tf.layers.dense(self.flat, units=1200, activation=tf.nn.elu, name="{}-{}_fc1".format(id,team))
-        self.fc2 = tf.layers.dense(self.fc1, units=1000, activation=tf.nn.elu, name="{}-{}_fc2".format(id,team))
+        self.pool = tf.layers.max_pooling2d(self.conv2, pool_size=2, strides=2)
+        self.flat = tf.contrib.layers.flatten(self.pool)
+        self.fc1 = tf.layers.dense(self.flat, units=30, activation=tf.nn.elu, name="{}-{}_fc1".format(id,team))
+        self.fc2 = tf.layers.dense(self.fc1, units=10, activation=tf.nn.elu, name="{}-{}_fc2".format(id,team))
         self.out = tf.layers.dense(self.fc2, units=len(self.actions), name="{}-{}_out".format(id,team))
         self.predict = tf.argmax(self.out, axis=1)
 
         self.next_q = tf.placeholder(tf.float32, shape=(1, len(self.actions)))
         self.loss = tf.reduce_sum(tf.squared_difference(self.next_q, self.out))
 
-        self.optimizer = tf.train.AdamOptimizer(0.001)
+        self.optimizer = tf.train.AdamOptimizer(1e-5)
         self.train = self.optimizer.minimize(self.loss)
 
         self.sess = tf.Session()
@@ -67,6 +68,7 @@ class QLearner:
             w.extend(weight.tolist())
 
         all_weights = np.array(w)
+        print(all_weights)
 
         print('**********************************')
         print('Weight Statistics for Agent {}, Team {}'.format(self.id, self.team))
