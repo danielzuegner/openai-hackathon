@@ -8,13 +8,17 @@ class QLearner:
         """ init the model with hyper-parameters etc """
         self.y = 0.8 # Discount factor
         self.e = 0.1 # Epsilon for e-greedy choice
-        
-        move = np.linspace(-1.0, 1.0, 21)
-        rotation = np.linspace(-1, 1, 21)
+        self.id = id
+        self.team = team
+
+        discretization_step = 0.5
+        move = np.arange(-1.0, 1.0 + discretization_step, discretization_step)
+        rotation = np.arange(-1, 1 + discretization_step, discretization_step)
         shoot = [0, 1]
         communicate = [0, 1]
         self.actions = [(m, r, s, c) for m in move for r in rotation for s in shoot for c in communicate]
-
+        print("actions")
+        print(len(self.actions))
         self.previous_q = [0 for _ in self.actions]
         self.previous_action = 0
         self.number_of_team_members = number_of_team_members
@@ -52,6 +56,20 @@ class QLearner:
         return (o, action)
 
     def optimize(self, img, target_Q):
-
-        _, l = self.sess.run([self.train, self.loss], feed_dict={self.next_q: np.expand_dims(np.squeeze(target_Q),0), self.img: img})
+        _, l = self.sess.run([self.train, self.loss], feed_dict={self.next_q: np.expand_dims(np.squeeze(target_Q),0), self.img: img/255})
         return l
+
+    def print_statistics(self):
+        all_weights = np.array([v.eval(self.sess).reshape(-1) for v in tf.trainable_variables()
+                                if '{}-{}'.format(self.id, self.team) in v.name])
+        w = []
+        for weight in all_weights:
+            w.extend(weight.tolist())
+
+        all_weights = np.array(w)
+
+        print('**********************************')
+        print('Weight Statistics for Agent {}, Team {}'.format(self.id, self.team))
+        print("Mean: {}\n Std.: {}\n Min: {}\n Max: {}".format(np.mean(all_weights), np.std(all_weights),
+                                                               np.min(all_weights), np.max(all_weights)))
+        print('**********************************')

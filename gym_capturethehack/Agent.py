@@ -21,6 +21,12 @@ class Agent:
         return self.get_action_Q(agent_state)
 
     def get_action_Q(self, agent_state):
+        if not self.is_alive:
+            if self.game_over:
+                self.reward += agent_state.reward
+            return (0, 0, 0, 0)
+        if self.game_over:
+            self.reward += agent_state.reward
         prev_qs = np.squeeze(np.array(self.learner.previous_q))
 
         #print("..")
@@ -39,5 +45,8 @@ class Agent:
         self.learner.optimize(frame, targetQ)
         return action
         #return (0.5, -0.5, 1, 1) # action
+
+    def print_weight_statistics(self):
+        self.learner.print_statistics()
 
        
