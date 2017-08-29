@@ -230,7 +230,7 @@ class CaptureTheHackEnv(gym.Env):
         if mode == 'state_pixels':
             WIDTH = STATE_W
             HEIGHT = STATE_H
-            factor = 1
+            factor = UPSCALE_FACTOR
         if mode == 'human':
             WIDTH = STATE_W * UPSCALE_FACTOR
             HEIGHT = STATE_H * UPSCALE_FACTOR
@@ -270,9 +270,9 @@ class CaptureTheHackEnv(gym.Env):
                 arr = np.fromstring(image_data.data, dtype=np.uint8, sep='')
                 arr = arr.reshape(HEIGHT, WIDTH, 4)
                 arr = arr[::-1, :, 0:3]
-                print(arr.shape)
-                plt.imshow(arr)
-                plt.show()
+                #print(arr.shape)
+                #plt.imshow(arr)
+                #plt.show()
 
                 state = AgentState(arr, agent.reward)
                 obs.set_agent_state(agent.team, agent.id, state=state)
@@ -283,9 +283,18 @@ class CaptureTheHackEnv(gym.Env):
 
         playfield = PLAYFIELD * factor  # Game over boundary
         color = (0.5, 0.5, 0.5)
-        self.viewer.draw_polygon([(-playfield + WIDTH / 2, +playfield + HEIGHT / 2),(+playfield + WIDTH / 2, +playfield + HEIGHT / 2),
-                                         (+playfield + WIDTH / 2, -playfield + HEIGHT / 2),(-playfield + WIDTH / 2, -playfield + HEIGHT / 2)], color = color)
-        self.viewer.draw_line((-playfield + WIDTH / 2, +playfield + HEIGHT / 2),(+playfield + WIDTH / 2, -playfield + HEIGHT / 2), color = color)
+
+        upper_y = playfield + STATE_H / 2 * factor
+        lower_y = - playfield + STATE_H / 2 * factor
+        upper_x = playfield + STATE_W / 2 * factor
+        lower_x = -playfield + STATE_W / 2 * factor
+
+        self.viewer.draw_polygon(
+            [(lower_x, upper_y), (upper_x, upper_y),
+             (upper_x, lower_y), (lower_x, lower_y)],
+            color=color)
+        self.viewer.draw_line((lower_x, upper_y),(upper_x, lower_y), color=color)
+
         for geom in self.viewer.onetime_geoms:
             geom.render()
         self.viewer.onetime_geoms = []
