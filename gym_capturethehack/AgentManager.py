@@ -77,4 +77,6 @@ class AgentManager:
 
         return observation
 
-
+    def save_sessions(self, path=""):
+        for ids, agent in self.teams_agents.items():
+            agent.save_session(path)

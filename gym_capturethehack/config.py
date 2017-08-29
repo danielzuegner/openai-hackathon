@@ -10,12 +10,12 @@ config = {
     "logging_level": logging.INFO,
     "image_size": (50,50,3),
     "actions_categories_counts": 4,
-    "die_punishment": -100,
-    "team_kill_punishment": -50,
-    "kill_reward": 40,
-    "assist_reward": 10,
-    "team_win_reward": 100,
-    "team_loss_punishment" : -100,
+    "die_punishment": -100/100,
+    "team_kill_punishment": -50/100,
+    "kill_reward": 40/100,
+    "assist_reward": 10/100,
+    "team_win_reward": 100/100,
+    "team_loss_punishment" : -100/100,
     "min_reward": -1000000,
     "max_reward": 1000000
 }

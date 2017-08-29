@@ -49,4 +49,6 @@ class Agent:
     def print_weight_statistics(self):
         self.learner.print_statistics()
 
+    def save_session(self, path=""):
+        self.learner.save_session(path)
        

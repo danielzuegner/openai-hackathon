@@ -270,9 +270,9 @@ class CaptureTheHackEnv(gym.Env):
                 arr = np.fromstring(image_data.data, dtype=np.uint8, sep='')
                 arr = arr.reshape(HEIGHT, WIDTH, 4)
                 arr = arr[::-1, :, 0:3]
-                print(arr.shape)
-                plt.imshow(arr)
-                plt.show()
+                #print(arr.shape)
+                #plt.imshow(arr)
+                #plt.show()
 
                 state = AgentState(arr, agent.reward)
                 obs.set_agent_state(agent.team, agent.id, state=state)

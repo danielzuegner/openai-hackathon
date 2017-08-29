@@ -21,6 +21,8 @@ class QLearner:
         self.previous_action = 0
         self.number_of_team_members = number_of_team_members
 
+        self.previous_img = None
+
         self.img = tf.placeholder(tf.float32, shape=(1,)+config["image_size"], name="{}-{}_image".format(id, team))
         self.conv1 = tf.layers.conv2d(self.img, filters=8, kernel_size=8, strides=4, activation=tf.nn.elu, name="{}-{}_conv1".format(id,team))
         self.conv2 = tf.layers.conv2d(self.conv1, filters=16, kernel_size=4, strides=3, activation=tf.nn.elu, name="{}-{}_conv2".format(id,team))
@@ -33,19 +35,29 @@ class QLearner:
         self.next_q = tf.placeholder(tf.float32, shape=(1, len(self.actions)))
         self.loss = tf.reduce_sum(tf.squared_difference(self.next_q, self.out))
 
-        self.optimizer = tf.train.AdamOptimizer(1e-5)
+        self.optimizer = tf.train.AdamOptimizer(7e-8)
         self.train = self.optimizer.minimize(self.loss)
 
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
 
     def inference(self, img):
-        o, p = self.sess.run([self.out, self.predict], feed_dict={self.img: img})
+        ixs = len(self.actions)
+        if self.previous_img == None:
+            self.previous_img = img
+            choice = np.random.choice(ixs)
+            action = self.actions[choice]
+            self.previous_action = choice
+            return (0, action)
+
+        feed_in = (img - self.previous_img) / 255
+        o, p = self.sess.run([self.out, self.predict], feed_dict={self.img: feed_in})
+        self.previous_img = img
         self.previous_q = o
 
         action = self.actions[p[0]]
         choice = p[0]
-        ixs = len(self.actions)
+
         if np.random.rand() < self.e:
             choice = np.random.choice(ixs)
             action = self.actions[choice]
@@ -54,7 +66,13 @@ class QLearner:
         return (o, action)
 
     def optimize(self, img, target_Q):
-        _, l = self.sess.run([self.train, self.loss], feed_dict={self.next_q: np.expand_dims(np.squeeze(target_Q),0), self.img: img/255})
+        if self.previous_img == None:
+            self.previous_img = img
+            return 0
+
+        feed_in = (img - self.previous_img) / 255
+        _, l = self.sess.run([self.train, self.loss], feed_dict={self.next_q: np.expand_dims(np.squeeze(target_Q),0),
+                                                                 self.img: feed_in})
         return l
 
     def print_statistics(self):
@@ -72,3 +90,11 @@ class QLearner:
         print("Mean: {}\n Std.: {}\n Min: {}\n Max: {}".format(np.mean(all_weights), np.std(all_weights),
                                                                np.min(all_weights), np.max(all_weights)))
         print('**********************************')
+
+    def save_session(self, path=""):
+
+        path = "{}{}_{}.ckpt".format(path, self.team, self.id)
+        saver = tf.train.Saver()
+        save_path = saver.save(self.session, path)
+
+
