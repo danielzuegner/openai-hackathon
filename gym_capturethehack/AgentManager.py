@@ -43,10 +43,9 @@ class AgentManager:
         
         actions = (move_rot, shoot, comm)
 
-        if self.learning_iterations % 1000 == 0:
-            for i, (team_id, agent_id) in enumerate(self.teams_agents):
-                agent = self.teams_agents[(team_id, agent_id)]
-                agent.print_weight_statistics()
+
+        if (self.learning_iterations + 1) % 10000 == 0:
+            self.save_sessions()
         self.learning_iterations +=1
 
 

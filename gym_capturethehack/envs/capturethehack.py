@@ -36,7 +36,7 @@ class EntityType(Enum):
 
 STATE_W = config["image_size"][0]
 STATE_H = config["image_size"][1]
-UPSCALE_FACTOR = 5
+UPSCALE_FACTOR = 7
 PLAYFIELD = (STATE_W + STATE_H) / 5
 
 FPS = 7
@@ -133,6 +133,7 @@ class CaptureTheHackEnv(gym.Env):
         self.teams_members_alive = None
         self.n_teams = 0
         self.agent_radius = 0
+        self.total_steps = 0
 
         lower_dims = np.ones([n_agents, 2]) * -1
         upper_dims = np.ones([n_agents, 2]) * 1
@@ -177,6 +178,13 @@ class CaptureTheHackEnv(gym.Env):
         return output
 
     def _step(self, action):
+
+        self.total_steps += 1
+        if (self.total_steps) % 5000 == 0:
+            for agent in self.agents:
+                print("**************************")
+                print("Agent {} Team {}: {} kills, {} deaths".format(agent.id, agent.team, agent.kills, agent.deaths))
+                print("**************************")
 
         for agent in self.agents:
             agent.reward = 0
@@ -387,6 +395,7 @@ class CaptureTheHackEnv(gym.Env):
              )
             agent.body = agent_body
             agent_body.linearDamping = .002
+            agent_body.angularDamping = .002
             agent_body.angle = np.random.uniform(low=0, high=2*pi)
             agent_body.userData = {"class": EntityType.AGENT, 'agent': agent, 'last_shot': self.time, 'toBeDestroyed': False, 'communicate': 0}
             agent.is_alive = True
@@ -448,6 +457,9 @@ class CaptureTheHackEnv(gym.Env):
             agent1.reward += config['kill_reward']
             self.give_team_reward(agent1.team,config['assist_reward'])
         agent2.reward += config['die_punishment']
+
+        agent1.kills += 1
+        agent2.deaths += 1
 
         self.teams_members_alive[agent2.team] -= 1
         if self.teams_members_alive[agent2.team] == 0:

@@ -38,6 +38,7 @@ class QLearner:
         self.optimizer = tf.train.AdamOptimizer(7e-8)
         self.train = self.optimizer.minimize(self.loss)
 
+        self.saver = tf.train.Saver()
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
 
@@ -94,7 +95,6 @@ class QLearner:
     def save_session(self, path=""):
 
         path = "{}{}_{}.ckpt".format(path, self.team, self.id)
-        saver = tf.train.Saver()
-        save_path = saver.save(self.session, path)
+        save_path = self.saver.save(self.sess, path)
 
 
