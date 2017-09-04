@@ -135,6 +135,7 @@ class CaptureTheHackEnv(gym.Env):
         self.agent_radius = 0
         self.total_steps = 0
 
+
         lower_dims = np.ones([n_agents, 2]) * -1
         upper_dims = np.ones([n_agents, 2]) * 1
         self.action_space = Tuple([spaces.Box( lower_dims, upper_dims ),             # (accelerate, decelerate), (steer left, steer right)
@@ -395,7 +396,7 @@ class CaptureTheHackEnv(gym.Env):
              )
             agent.body = agent_body
             agent_body.linearDamping = .002
-            agent_body.angularDamping = .002
+            agent_body.angularDamping = .02
             agent_body.angle = np.random.uniform(low=0, high=2*pi)
             agent_body.userData = {"class": EntityType.AGENT, 'agent': agent, 'last_shot': self.time, 'toBeDestroyed': False, 'communicate': 0}
             agent.is_alive = True

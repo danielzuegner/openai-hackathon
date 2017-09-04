@@ -40,11 +40,14 @@ class AgentManager:
             move_rot[i, 1] = action[1]
             shoot.append(action[2])
             comm.append(action[3])
-        
+
         actions = (move_rot, shoot, comm)
 
 
         if (self.learning_iterations + 1) % 10000 == 0:
+            for i, (team_id, agent_id) in enumerate(self.teams_agents):
+                agent = self.teams_agents[(team_id, agent_id)]
+                agent.learner.e = max(0.9999 * agent.learner.e, 0.01)
             self.save_sessions()
         self.learning_iterations +=1
 

@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from gym_capturethehack.config import config
+from matplotlib import pyplot as plt
 
 class QLearner:
     def __init__(self, number_of_team_members, id, team):
@@ -12,18 +13,28 @@ class QLearner:
         self.team = team
 
         discretization_step = 0.5
-        move = np.arange(-1.0, 1.0 + discretization_step, discretization_step)
-        rotation = np.arange(-1, 1 + discretization_step, discretization_step)
+        move = np.linspace(-.5,.5,2)
+        rotation = np.linspace(-.5,.5,2)
         shoot = [0, 1]
         communicate = [0, 1]
-        self.actions = [(m, r, s, c) for m in move for r in rotation for s in shoot for c in communicate]
+        self.actions = []
+        self.actions += [(m, 0, 0, 0) for m in move]
+        self.actions += [(0, r, 0, 0) for r in rotation]
+        self.actions += [(0, 0, s, 0) for s in shoot]
+        self.actions += [(0, 0, 0, c) for c in communicate]
+        self.actions = list(set(self.actions))
+
+        #self.actions = [(m, r, s, c) for m in move for r in rotation for s in shoot for c in communicate]
+
         self.previous_q = [0 for _ in self.actions]
         self.previous_action = 0
         self.number_of_team_members = number_of_team_members
 
         self.previous_img = None
 
-        self.img = tf.placeholder(tf.float32, shape=(1,)+config["image_size"], name="{}-{}_image".format(id, team))
+        img_shape = list((1,)+config["image_size"])
+        img_shape[-1] *= 2
+        self.img = tf.placeholder(tf.float32, shape=img_shape, name="{}-{}_image".format(id, team))
         self.conv1 = tf.layers.conv2d(self.img, filters=8, kernel_size=8, strides=4, activation=tf.nn.elu, name="{}-{}_conv1".format(id,team))
         self.conv2 = tf.layers.conv2d(self.conv1, filters=16, kernel_size=4, strides=3, activation=tf.nn.elu, name="{}-{}_conv2".format(id,team))
         self.flat = tf.contrib.layers.flatten(self.conv2)
@@ -51,7 +62,8 @@ class QLearner:
             self.previous_action = choice
             return (0, action)
 
-        feed_in = (img - self.previous_img) / 255
+        #feed_in = np.concatenate([img, self.previous_img], axis=2)/255
+        feed_in = np.concatenate([img, self.previous_img], axis=3)/255
         o, p = self.sess.run([self.out, self.predict], feed_dict={self.img: feed_in})
         self.previous_img = img
         self.previous_q = o
@@ -71,7 +83,9 @@ class QLearner:
             self.previous_img = img
             return 0
 
-        feed_in = (img - self.previous_img) / 255
+        #feed_in = np.concatenate([img, self.previous_img], axis=2)/255
+        feed_in = np.concatenate([img, self.previous_img], axis=3)/255
+
         _, l = self.sess.run([self.train, self.loss], feed_dict={self.next_q: np.expand_dims(np.squeeze(target_Q),0),
                                                                  self.img: feed_in})
         return l
@@ -94,7 +108,7 @@ class QLearner:
 
     def save_session(self, path=""):
 
-        path = "{}{}_{}.ckpt".format(path, self.team, self.id)
+        path = "{}{}_{}-2.ckpt".format(path, self.team, self.id)
         save_path = self.saver.save(self.sess, path)
 
 
