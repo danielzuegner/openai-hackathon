@@ -1,5 +1,6 @@
 import gym
 from gym_capturethehack.AgentManager import AgentManager
+from gym_capturethehack.envs.capturethehack import CaptureTheHackEnv
 
 env = gym.make('CaptureTheHack-v0')
 episodes = 200000

@@ -2,6 +2,7 @@ from gym_capturethehack.Agent import Agent
 from collections import defaultdict
 import numpy as np
 from gym_capturethehack.config import config
+from gym_capturethehack.config import Mode
 from gym_capturethehack.Observation import Observation
 from gym_capturethehack.AgentState import AgentState
 
@@ -17,9 +18,18 @@ class AgentManager:
         logger.debug("Initializing Agent Manager")
         self.learning_iterations = 0
 
-        for team_id, n in enumerate(config["team_counts"]):
-            for agent_id in range(n):
-                self.teams_agents[(team_id, agent_id)] = Agent(team_id, agent_id)
+        if config['mode'] == Mode.TEST_SETUP:
+            learning_agent = Agent(team=0, id=0)
+            learning_agent.behavior = Agent.Behavior.LEARNING
+
+            do_nothing_agent = Agent(team=1, id=0, learning=False)
+            do_nothing_agent.behavior = Agent.Behavior.DO_NOTHING
+            self.teams_agents[(0,0)] = learning_agent
+            self.teams_agents[(1,0)] = do_nothing_agent
+        else:
+            for team_id, n in enumerate(config["team_counts"]):
+                for agent_id in range(n):
+                    self.teams_agents[(team_id, agent_id)] = Agent(team_id, agent_id)
 
     def merge_actions(self, observation):
         """
@@ -47,7 +57,8 @@ class AgentManager:
         if (self.learning_iterations + 1) % 10000 == 0:
             for i, (team_id, agent_id) in enumerate(self.teams_agents):
                 agent = self.teams_agents[(team_id, agent_id)]
-                agent.learner.e = max(0.9999 * agent.learner.e, 0.01)
+                if agent.learner != None:
+                    agent.learner.e = max(0.9999 * agent.learner.e, 0.01)
             self.save_sessions()
         self.learning_iterations +=1
 

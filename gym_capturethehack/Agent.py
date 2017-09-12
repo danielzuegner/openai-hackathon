@@ -4,8 +4,14 @@ import numpy as np
 import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(config["logging_level"])
+from enum import Enum
 
 class Agent:
+
+    class Behavior(Enum):
+        LEARNING = 1
+        DO_NOTHING = 2
+        RANDOM = 3
 
     def __init__(self, team, id, learning=True):
         self.team = team
@@ -14,13 +20,21 @@ class Agent:
         self.is_alive = True
         if learning:
             self.learner = QLearner(config["team_counts"][self.team], self.team,self.id)
+        else:
+            self.learner = None
         self.reward = 0
         self.game_over = False # game is over for the team
         self.kills = 0
         self.deaths = 0
+        self.behavior = Agent.Behavior.LEARNING
 
     def get_next_action(self, agent_state):
-        return self.get_action_Q(agent_state)
+        if self.behavior == Agent.Behavior.LEARNING:
+            return self.get_action_Q(agent_state)
+        elif self.behavior == Agent.Behavior.DO_NOTHING:
+            return (0,0,0,0)
+        elif self.behavior == Agent.Behavior.RANDOM:
+            return np.random.choice(self.learner.actions)
 
     def get_action_Q(self, agent_state):
         if not self.is_alive:
@@ -49,8 +63,10 @@ class Agent:
         #return (0.5, -0.5, 1, 1) # action
 
     def print_weight_statistics(self):
-        self.learner.print_statistics()
+        if self.learner is not None:
+            self.learner.print_statistics()
 
     def save_session(self, path=""):
-        self.learner.save_session(path)
+        if self.learner is not None:
+            self.learner.save_session(path)
        

@@ -13,8 +13,8 @@ class QLearner:
         self.team = team
 
         discretization_step = 0.5
-        move = np.linspace(-.5,.5,2)
-        rotation = np.linspace(-.5,.5,2)
+        move = np.linspace(-1,1,2)
+        rotation = np.linspace(-1,1,2)
         shoot = [0, 1]
         communicate = [0, 1]
         self.actions = []
@@ -38,15 +38,15 @@ class QLearner:
         self.conv1 = tf.layers.conv2d(self.img, filters=8, kernel_size=8, strides=4, activation=tf.nn.elu, name="{}-{}_conv1".format(id,team))
         self.conv2 = tf.layers.conv2d(self.conv1, filters=16, kernel_size=4, strides=3, activation=tf.nn.elu, name="{}-{}_conv2".format(id,team))
         self.flat = tf.contrib.layers.flatten(self.conv2)
-        self.fc1 = tf.layers.dense(self.flat, units=30, activation=tf.nn.elu, name="{}-{}_fc1".format(id,team))
-        self.fc2 = tf.layers.dense(self.fc1, units=10, activation=tf.nn.elu, name="{}-{}_fc2".format(id,team))
+        #self.fc1 = tf.layers.dense(self.flat, units=30, activation=tf.nn.elu, name="{}-{}_fc1".format(id,team))
+        self.fc2 = tf.layers.dense(self.flat, units=10, activation=tf.nn.elu, name="{}-{}_fc2".format(id,team))
         self.out = tf.layers.dense(self.fc2, units=len(self.actions), name="{}-{}_out".format(id,team))
         self.predict = tf.argmax(self.out, axis=1)
 
         self.next_q = tf.placeholder(tf.float32, shape=(1, len(self.actions)))
         self.loss = tf.reduce_sum(tf.squared_difference(self.next_q, self.out))
 
-        self.optimizer = tf.train.AdamOptimizer(7e-8)
+        self.optimizer = tf.train.AdamOptimizer(1e-6)
         self.train = self.optimizer.minimize(self.loss)
 
         self.saver = tf.train.Saver()

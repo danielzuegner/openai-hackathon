@@ -11,6 +11,7 @@ sys.path.append('..')
 
 from gym_capturethehack.Agent import Agent
 from gym_capturethehack.config import config
+from gym_capturethehack.config import Mode
 from gym_capturethehack.EnvironmentManager import EnvironmentManager
 from gym_capturethehack.AgentState import AgentState
 from gym_capturethehack.Observation import Observation
@@ -32,7 +33,6 @@ class EntityType(Enum):
     AGENT = 1
     OBSTACLE = 2
     BULLET = 3
-
 
 STATE_W = config["image_size"][0]
 STATE_H = config["image_size"][1]
@@ -118,16 +118,29 @@ class CaptureTheHackEnv(gym.Env):
 
     def __init__(self):
 
-        n_agents = sum(config['team_counts'])
+
         self._seed()
         self.collisionDetector= ContactListener(self)
         self.world = Box2D.b2World((0, 0), contactListener=self.collisionDetector)
         self.viewer = None
         self.agents = []
-        for id, agents in enumerate(config["team_counts"]):
-            for agent in range(agents):
-                agent_object = Agent(team=id, id=agent, learning=False)
-                self.agents.append(agent_object)
+
+        if config['mode'] == Mode.TEAM_DEATHMATCH:
+            n_agents = sum(config['team_counts'])
+
+            for id, agents in enumerate(config["team_counts"]):
+                for agent in range(agents):
+                    agent_object = Agent(team=id, id=agent, learning=False)
+                    self.agents.append(agent_object)
+        elif config['mode'] == Mode.TEST_SETUP:
+            n_agents = 2
+            learning_agent = Agent(team=0, id=0, learning=False)
+            learning_agent.behavior = Agent.Behavior.LEARNING
+
+            do_nothing_agent = Agent(team=1, id=0, learning=False)
+            do_nothing_agent.behavior = Agent.Behavior.DO_NOTHING
+            self.agents.append(learning_agent)
+            self.agents.append(do_nothing_agent)
 
         self.env_manager = EnvironmentManager()
         self.teams_members_alive = None
@@ -194,7 +207,7 @@ class CaptureTheHackEnv(gym.Env):
             if 'toBeDestroyed' in body.userData and body.userData['toBeDestroyed'] == True:
                 self.world.DestroyBody(body)
         for ix, agent in enumerate(self.agents):
-            if agent.is_alive == False or len(agent.body.fixtures) == 0:
+            if not agent.is_alive or len(agent.body.fixtures) == 0:
                 continue
             self.env_manager.split_actions(action)
             _action = self.env_manager.get_agent_action(agent.team, agent.id)
@@ -219,6 +232,8 @@ class CaptureTheHackEnv(gym.Env):
 
             agent.body.userData['communicate'] = communication_bit
 
+            agent.reward += config['per_timestep_reward']
+
             if shoot == 1:
                 self.agentShoot(agent)
 
@@ -227,6 +242,9 @@ class CaptureTheHackEnv(gym.Env):
 
         obs = self._render('state_pixels')
         output = self.env_manager.observation_to_observation_space(obs)
+
+        if self.time * FPS >= config['episode_time_step_limit']:
+            self.done = True
 
         return output, 0, self.done, {}
 
@@ -388,20 +406,10 @@ class CaptureTheHackEnv(gym.Env):
         self.agent_radius = (STATE_H + STATE_W) / 100
         #self.agent_radius = 4
 
-        for agent in self.agents:
-            agent_body = self.world.CreateDynamicBody(
-                position=(np.random.uniform(low=lower_x + self.agent_radius, high=upper_x - self.agent_radius), np.random.uniform(low=lower_y + self.agent_radius, high=upper_y - self.agent_radius)),
-                fixtures=fixtureDef(shape=circleShape(
-                    radius=self.agent_radius), density=1),
-             )
-            agent.body = agent_body
-            agent_body.linearDamping = .002
-            agent_body.angularDamping = .02
-            agent_body.angle = np.random.uniform(low=0, high=2*pi)
-            agent_body.userData = {"class": EntityType.AGENT, 'agent': agent, 'last_shot': self.time, 'toBeDestroyed': False, 'communicate': 0}
-            agent.is_alive = True
-            agent.game_over = False
-            agent.reward = 0
+        if config['mode'] == Mode.TEAM_DEATHMATCH:
+            self.create_agents_team_deathmatch()
+        elif config['mode'] == Mode.TEST_SETUP:
+            self.create_agents_test_setup()
 
         upperWall = self.world.CreateStaticBody()
         upperWall.CreatePolygonFixture(vertices=upperWallBox, density=100000)
@@ -418,6 +426,72 @@ class CaptureTheHackEnv(gym.Env):
         rightWall = self.world.CreateStaticBody()
         rightWall.CreatePolygonFixture(vertices=rightWallBox, density=100000)
         rightWall.userData = {"class": EntityType.OBSTACLE}
+
+
+    def create_agents_team_deathmatch(self):
+        upper_y = PLAYFIELD + STATE_H / 2
+        lower_y = - PLAYFIELD + STATE_H / 2
+        upper_x = PLAYFIELD + STATE_W / 2
+        lower_x = -PLAYFIELD + STATE_W / 2
+        #self.agent_radius = 4
+
+        for agent in self.agents:
+            agent_body = self.world.CreateDynamicBody(
+                position=(np.random.uniform(low=lower_x + self.agent_radius, high=upper_x - self.agent_radius), np.random.uniform(low=lower_y + self.agent_radius, high=upper_y - self.agent_radius)),
+                fixtures=fixtureDef(shape=circleShape(
+                    radius=self.agent_radius), density=2),
+             )
+            agent.body = agent_body
+            agent_body.linearDamping = .3
+            agent_body.angularDamping = .3
+            agent_body.angle = np.random.uniform(low=0, high=2*pi)
+            agent_body.userData = {"class": EntityType.AGENT, 'agent': agent, 'last_shot': self.time, 'toBeDestroyed': False, 'communicate': 0}
+            agent.is_alive = True
+            agent.game_over = False
+            agent.reward = 0
+
+    def create_agents_test_setup(self):
+        print("test_setup")
+        upper_y = PLAYFIELD + STATE_H / 2
+        lower_y = - PLAYFIELD + STATE_H / 2
+        upper_x = PLAYFIELD + STATE_W / 2
+        lower_x = -PLAYFIELD + STATE_W / 2
+
+        learning_agent = self.agents[0]
+        l_agent_body = self.world.CreateDynamicBody(
+                position=(10, 13),
+                fixtures=fixtureDef(shape=circleShape(
+                    radius=self.agent_radius), density=2),
+             )
+        learning_agent.body = l_agent_body
+        l_agent_body.linearDamping = .3
+        l_agent_body.angularDamping = .3
+        l_agent_body.angle = pi
+        l_agent_body.userData = {"class": EntityType.AGENT, 'agent': learning_agent, 'last_shot': self.time,
+                               'toBeDestroyed': False, 'communicate': 0}
+
+        learning_agent.is_alive = True
+        learning_agent.game_over = False
+        learning_agent.reward = 0
+
+
+        do_nothing_agent = self.agents[1]
+        d_agent_body = self.world.CreateDynamicBody(
+            position=(40, 35),
+            fixtures=fixtureDef(shape=circleShape(
+                radius=self.agent_radius), density=2),
+        )
+        do_nothing_agent.body = d_agent_body
+        d_agent_body.linearDamping = .3
+        d_agent_body.angularDamping = .3
+        d_agent_body.angle = pi
+        d_agent_body.userData = {"class": EntityType.AGENT, 'agent': do_nothing_agent, 'last_shot': self.time,
+                                 'toBeDestroyed': False, 'communicate': 0}
+
+        do_nothing_agent.is_alive = True
+        do_nothing_agent.game_over = False
+        do_nothing_agent.reward = 0
+
 
 
     def agentShoot(self, agent):
